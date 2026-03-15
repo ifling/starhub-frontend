@@ -190,6 +190,76 @@
               报名截止时间前如未改为活动开始时间，则显示“已过期”，无法报名。
             </text>
           </view>
+
+          <view v-else-if="activeEditorTab === 'limit'" class="limit-panel">
+            <view class="limit-row" @click="openLimitPicker('total')">
+              <text class="limit-label">总人数</text>
+              <view class="limit-row-right">
+                <text class="limit-value">{{ limitLabel(limitForm.total) }}</text>
+                <text class="field-arrow">›</text>
+              </view>
+            </view>
+            <view class="limit-row" @click="openLimitPicker('tank')">
+              <view class="limit-icon limit-icon--tank"></view>
+              <text class="limit-label">坦克总数</text>
+              <view class="limit-row-right">
+                <text class="limit-value">{{ limitLabel(limitForm.tank) }}</text>
+                <text class="field-arrow">›</text>
+              </view>
+            </view>
+            <view class="limit-row" @click="openLimitPicker('healer')">
+              <view class="limit-icon limit-icon--healer"></view>
+              <text class="limit-label">治疗总数</text>
+              <view class="limit-row-right">
+                <text class="limit-value">{{ limitLabel(limitForm.healer) }}</text>
+                <text class="field-arrow">›</text>
+              </view>
+            </view>
+            <view class="limit-row" @click="openLimitPicker('dps')">
+              <view class="limit-icon limit-icon--dps"></view>
+              <text class="limit-label">输出总数</text>
+              <view class="limit-row-right">
+                <text class="limit-value">{{ limitLabel(limitForm.dps) }}</text>
+                <text class="field-arrow">›</text>
+              </view>
+            </view>
+
+            <view class="limit-divider">
+              <text class="limit-divider-text">—————职业人数限制————</text>
+            </view>
+
+            <view class="limit-class-grid">
+              <view
+                v-for="cls in limitClassList"
+                :key="cls.id"
+                class="limit-class-block"
+              >
+                <view class="limit-class-row1" @click="openClassLimitPicker(cls.id)">
+                  <text class="limit-class-name" :style="{ color: cls.color || '#111827' }">{{ cls.name }}</text>
+                  <view class="limit-class-right">
+                    <text class="limit-infinity">{{ cls.limit === -1 ? '禁止' : (cls.limit == null ? '∞' : cls.limit) }}</text>
+                    <text class="field-arrow">›</text>
+                  </view>
+                </view>
+                <view class="limit-class-specs">
+                  <view class="limit-spec-col">
+                    <text class="limit-spec-name">{{ cls.specs[0].name }}</text>
+                    <text
+                      class="limit-spec-val"
+                      @click.stop="openSpecLimitPicker(cls.id, 0)"
+                    >{{ cls.specs[0].limit === -1 ? '禁止' : (cls.specs[0].limit == null ? '∞' : cls.specs[0].limit) }}</text>
+                  </view>
+                  <view class="limit-spec-col">
+                    <text class="limit-spec-name">{{ cls.specs[1].name }}</text>
+                    <text
+                      class="limit-spec-val"
+                      @click.stop="openSpecLimitPicker(cls.id, 1)"
+                    >{{ cls.specs[1].limit === -1 ? '禁止' : (cls.specs[1].limit == null ? '∞' : cls.specs[1].limit) }}</text>
+                  </view>
+                </view>
+              </view>
+            </view>
+          </view>
         </scroll-view>
 
         <view class="editor-footer">
@@ -314,6 +384,27 @@
           </view>
         </view>
       </view>
+
+      <view v-if="showLimitPicker" class="picker-pop">
+        <view class="picker-mask" @click="closeLimitPicker"></view>
+        <view class="date-card limit-picker-card" @click.stop>
+          <scroll-view
+            scroll-y
+            class="limit-picker-scroll"
+            :scroll-into-view="limitScrollIntoView"
+          >
+            <view
+              v-for="(opt, idx) in limitOptions"
+              :key="idx"
+              :id="'limit-opt-' + idx"
+              class="limit-opt-row"
+              @click.stop="selectLimitAndClose(opt)"
+            >
+              <text class="limit-opt-text">{{ opt }}</text>
+            </view>
+          </scroll-view>
+        </view>
+      </view>
     </view>
   </view>
 </template>
@@ -361,6 +452,31 @@ export default {
       timePickerHours: [],
       timePickerMinutes: [],
       timePickerIndex: [19, 30],
+      limitForm: {
+        total: null,
+        tank: null,
+        healer: null,
+        dps: null,
+      },
+      limitClassList: [
+        { id: 'senyuzhe', name: '森语者', color: '#32BF0F', limit: null, specs: [{ name: '惩击', limit: null }, { name: '愈合', limit: null }] },
+        { id: 'bingmo', name: '冰魔导师', color: '#5C82E1', limit: null, specs: [{ name: '冰矛', limit: null }, { name: '射线', limit: null }] },
+        { id: 'leiying', name: '雷影剑士', color: '#6B39DE', limit: null, specs: [{ name: '居合', limit: null }, { name: '月刃', limit: null }] },
+        { id: 'qinglan', name: '青岚骑士', color: '#11B5B2', limit: null, specs: [{ name: '重装', limit: null }, { name: '空战', limit: null }] },
+        { id: 'juren', name: '巨人守护者', color: '#08A0DC', limit: null, specs: [{ name: '岩盾', limit: null }, { name: '格挡', limit: null }] },
+        { id: 'shensheshou', name: '神射手', color: '#D4D116', limit: null, specs: [{ name: '驭兽', limit: null }, { name: '驯鹰', limit: null }] },
+        { id: 'shendun', name: '神盾骑士', color: '#0F68B3', limit: null, specs: [{ name: '防护', limit: null }, { name: '光盾', limit: null }] },
+        { id: 'linghun', name: '灵魂乐手', color: '#1F9F0E', limit: null, specs: [{ name: '狂音', limit: null }, { name: '协奏', limit: null }] },
+      ],
+      showLimitPicker: false,
+      limitPickerTarget: null,
+      limitPickerIndex: 1,
+      limitScrollIntoView: '',
+      limitOptions: (() => {
+        const arr = ['禁止', '不限']
+        for (let i = 1; i <= 99; i++) arr.push(String(i))
+        return arr
+      })(),
     }
   },
   methods: {
@@ -538,6 +654,107 @@ export default {
       const minute = this.timePickerMinutes[mi] || '30'
       this.form.deadlineTime = `${hour}:${minute}`
       this.showTimePicker = false
+    },
+    limitLabel(val) {
+      if (val === -1) return '禁止'
+      if (val === null || val === undefined) return '不限'
+      return String(val)
+    },
+    getLimitValueIndex(val) {
+      if (val === -1) return 0
+      if (val === null || val === undefined) return 1
+      const n = parseInt(val, 10)
+      if (n >= 1 && n <= 99) return 1 + n
+      return 1
+    },
+    openLimitPicker(target) {
+      this.limitPickerTarget = target
+      let cur = null
+      if (target === 'total') cur = this.limitForm.total
+      else if (target === 'tank') cur = this.limitForm.tank
+      else if (target === 'healer') cur = this.limitForm.healer
+      else if (target === 'dps') cur = this.limitForm.dps
+      this.limitPickerIndex = this.getLimitValueIndex(cur)
+      this.limitScrollIntoView = ''
+      this.showLimitPicker = true
+      const index = this.limitPickerIndex
+      this.$nextTick(() => {
+        this.limitScrollIntoView = 'limit-opt-' + index
+        setTimeout(() => {
+          this.limitScrollIntoView = ''
+          this.$nextTick(() => {
+            this.limitScrollIntoView = 'limit-opt-' + index
+          })
+        }, 80)
+      })
+    },
+    openClassLimitPicker(classId) {
+      this.limitPickerTarget = 'class_' + classId
+      const cls = this.limitClassList.find((c) => c.id === classId)
+      this.limitPickerIndex = this.getLimitValueIndex(cls ? cls.limit : null)
+      this.limitScrollIntoView = ''
+      this.showLimitPicker = true
+      const index = this.limitPickerIndex
+      this.$nextTick(() => {
+        this.limitScrollIntoView = 'limit-opt-' + index
+        setTimeout(() => {
+          this.limitScrollIntoView = ''
+          this.$nextTick(() => {
+            this.limitScrollIntoView = 'limit-opt-' + index
+          })
+        }, 80)
+      })
+    },
+    openSpecLimitPicker(classId, specIndex) {
+      this.limitPickerTarget = 'spec_' + classId + '_' + specIndex
+      const cls = this.limitClassList.find((c) => c.id === classId)
+      const spec = cls && cls.specs && cls.specs[specIndex] ? cls.specs[specIndex] : null
+      this.limitPickerIndex = this.getLimitValueIndex(spec ? spec.limit : null)
+      this.limitScrollIntoView = ''
+      this.showLimitPicker = true
+      const index = this.limitPickerIndex
+      this.$nextTick(() => {
+        this.limitScrollIntoView = 'limit-opt-' + index
+        setTimeout(() => {
+          this.limitScrollIntoView = ''
+          this.$nextTick(() => {
+            this.limitScrollIntoView = 'limit-opt-' + index
+          })
+        }, 80)
+      })
+    },
+    closeLimitPicker() {
+      this.showLimitPicker = false
+      this.limitPickerTarget = null
+      this.limitScrollIntoView = ''
+    },
+    selectLimitAndClose(opt) {
+      let val = null
+      if (opt === '禁止') val = -1
+      else if (opt === '不限') val = null
+      else val = parseInt(opt, 10)
+      if (this.limitPickerTarget === 'total') {
+        this.limitForm.total = val
+      } else if (this.limitPickerTarget === 'tank') {
+        this.limitForm.tank = val
+      } else if (this.limitPickerTarget === 'healer') {
+        this.limitForm.healer = val
+      } else if (this.limitPickerTarget === 'dps') {
+        this.limitForm.dps = val
+      } else if (this.limitPickerTarget && this.limitPickerTarget.startsWith('class_')) {
+        const id = this.limitPickerTarget.replace('class_', '')
+        const cls = this.limitClassList.find((c) => c.id === id)
+        if (cls) cls.limit = val
+      } else if (this.limitPickerTarget && this.limitPickerTarget.startsWith('spec_')) {
+        const parts = this.limitPickerTarget.replace('spec_', '').split('_')
+        const classId = parts[0]
+        const specIndex = parseInt(parts[1], 10)
+        const cls = this.limitClassList.find((c) => c.id === classId)
+        if (cls && cls.specs && cls.specs[specIndex] !== undefined) {
+          cls.specs[specIndex].limit = val
+        }
+      }
+      this.closeLimitPicker()
     },
   },
 }
@@ -1131,6 +1348,15 @@ export default {
   justify-content: center;
 }
 
+.picker-mask {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 0;
+}
+
 .picker-card {
   width: 360rpx;
   background: #ffffff;
@@ -1211,6 +1437,158 @@ export default {
 .btn-date-ok {
   background: #22c55e;
   color: #ffffff;
+}
+
+.limit-panel {
+  padding-bottom: 24rpx;
+}
+
+.limit-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 20rpx 16rpx 20rpx 0;
+  border-bottom: 2rpx solid rgba(0, 0, 0, 0.06);
+}
+
+.limit-label {
+  font-size: 26rpx;
+  color: rgba(17, 24, 39, 0.9);
+  margin-right: 16rpx;
+}
+
+.limit-icon {
+  width: 32rpx;
+  height: 32rpx;
+  border-radius: 8rpx;
+  margin-right: 12rpx;
+}
+
+.limit-icon--tank {
+  background: #3b82f6;
+}
+
+.limit-icon--healer {
+  background: #22c55e;
+}
+
+.limit-icon--dps {
+  background: #ef4444;
+}
+
+.limit-row-right {
+  margin-left: auto;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8rpx;
+  flex-shrink: 0;
+}
+
+.limit-value {
+  font-size: 26rpx;
+  color: rgba(17, 24, 39, 0.7);
+}
+
+.limit-divider {
+  padding: 24rpx 0 16rpx;
+  text-align: center;
+}
+
+.limit-divider-text {
+  font-size: 24rpx;
+  color: rgba(17, 24, 39, 0.5);
+}
+
+.limit-class-grid {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.limit-class-block {
+  width: 33.33%;
+  box-sizing: border-box;
+  padding: 12rpx 8rpx 16rpx;
+  border-bottom: 2rpx solid rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8rpx;
+}
+
+.limit-class-row1 {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.limit-class-name {
+  font-size: 24rpx;
+  color: rgba(17, 24, 39, 0.9);
+}
+
+.limit-class-right {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4rpx;
+}
+
+.limit-infinity {
+  font-size: 24rpx;
+  color: rgba(17, 24, 39, 0.6);
+}
+
+.limit-class-specs {
+  display: flex;
+  flex-direction: row;
+  gap: 24rpx;
+  padding: 0 8rpx;
+}
+
+.limit-spec-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4rpx;
+}
+
+.limit-spec-name {
+  font-size: 22rpx;
+  color: rgba(17, 24, 39, 0.7);
+}
+
+.limit-spec-val {
+  font-size: 22rpx;
+  color: rgba(17, 24, 39, 0.6);
+}
+
+.limit-picker-card {
+  position: relative;
+  z-index: 1;
+  width: 400rpx;
+  padding-top: 12rpx;
+}
+
+.limit-picker-scroll {
+  height: 400rpx;
+}
+
+.limit-opt-row {
+  padding: 24rpx 28rpx;
+  border-bottom: 2rpx solid rgba(0, 0, 0, 0.06);
+}
+
+.limit-opt-row:active {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.limit-opt-text {
+  font-size: 28rpx;
+  color: #111827;
+  text-align: center;
 }
 </style>
 
