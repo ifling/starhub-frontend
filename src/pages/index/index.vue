@@ -10,7 +10,7 @@
         <view class="tool-icon" hover-class="tool-icon--hover" hover-stay-time="80">
           <view class="tool-icon__glyph"></view>
         </view>
-        <text class="tool-name">集合石</text>
+        <text class="tool-name">组队</text>
       </view>
     </view>
   </view>
@@ -68,12 +68,9 @@ export default {
 }
 
 .tool-icon {
-  width: 140rpx;
-  height: 140rpx;
+  width: 120rpx;
+  height: 120rpx;
   padding: 0;
-  border-radius: 28rpx;
-  background: linear-gradient(135deg, #34d399 0%, #10b981 55%, #059669 100%);
-  box-shadow: 0 14rpx 34rpx rgba(16, 185, 129, 0.28);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -85,10 +82,12 @@ export default {
 }
 
 .tool-icon__glyph {
-  width: 56rpx;
-  height: 56rpx;
-  border-radius: 18rpx;
-  background: rgba(255, 255, 255, 0.92);
+  width: 120rpx;
+  height: 120rpx;
+  background-image: url('/static/icons/stone.svg');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
 }
 
 .tool-name {

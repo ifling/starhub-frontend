@@ -21,7 +21,7 @@
 		{
 			"path": "pages/stone/index",
 			"style": {
-				"navigationBarTitleText": "集合石"
+				"navigationBarTitleText": "组队"
 			}
 		}
 	],
@@ -33,15 +33,21 @@
 		"list": [
 			{
 				"pagePath": "pages/index/index",
-				"text": "首页"
+				"text": "首页",
+				"iconPath": "static/icons/home-tab.svg",
+				"selectedIconPath": "static/icons/home-tab-active.svg"
 			},
 			{
 				"pagePath": "pages/message/index",
-				"text": "消息"
+				"text": "消息",
+				"iconPath": "static/icons/message-tab.svg",
+				"selectedIconPath": "static/icons/message-tab-active.svg"
 			},
 			{
 				"pagePath": "pages/mine/index",
-				"text": "我的"
+				"text": "我的",
+				"iconPath": "static/icons/mine-tab.svg",
+				"selectedIconPath": "static/icons/mine-tab-active.svg"
 			}
 		]
 	},

@@ -176,12 +176,10 @@
             </view>
 
             <view class="field field--textarea">
-              <text class="field-label">
-                选填，请输入活动的简介或描述，限 2000 字（注意：请不要输入表情字符）
-              </text>
               <textarea
                 class="field-textarea"
                 v-model="form.desc"
+                placeholder="选填，请输入活动的简介或描述，限 2000 字（注意：请不要输入表情字符）"
                 placeholder-class="field-placeholder"
               />
             </view>
@@ -200,24 +198,24 @@
               </view>
             </view>
             <view class="limit-row" @click="openLimitPicker('tank')">
-              <view class="limit-icon limit-icon--tank"></view>
               <text class="limit-label">坦克总数</text>
+              <view class="limit-icon limit-icon--tank"></view>
               <view class="limit-row-right">
                 <text class="limit-value">{{ limitLabel(limitForm.tank) }}</text>
                 <text class="field-arrow">›</text>
               </view>
             </view>
             <view class="limit-row" @click="openLimitPicker('healer')">
-              <view class="limit-icon limit-icon--healer"></view>
               <text class="limit-label">治疗总数</text>
+              <view class="limit-icon limit-icon--healer"></view>
               <view class="limit-row-right">
                 <text class="limit-value">{{ limitLabel(limitForm.healer) }}</text>
                 <text class="field-arrow">›</text>
               </view>
             </view>
             <view class="limit-row" @click="openLimitPicker('dps')">
-              <view class="limit-icon limit-icon--dps"></view>
               <text class="limit-label">输出总数</text>
+              <view class="limit-icon limit-icon--dps"></view>
               <view class="limit-row-right">
                 <text class="limit-value">{{ limitLabel(limitForm.dps) }}</text>
                 <text class="field-arrow">›</text>
@@ -259,6 +257,17 @@
                 </view>
               </view>
             </view>
+          </view>
+
+          <view v-else class="seat-panel">
+            <view class="seat-add" @click="onAddSeat">
+              <text class="seat-add-plus">＋</text>
+              <text class="seat-add-text">新增</text>
+            </view>
+            <text class="seat-tip">
+              创建一些比如“老板”等特殊席位，可进行报名，最多5类。
+              <text class="seat-tip--danger">活动创建后“特殊席位”将无法新增和删除。</text>
+            </text>
           </view>
         </scroll-view>
 
@@ -655,6 +664,9 @@ export default {
       this.form.deadlineTime = `${hour}:${minute}`
       this.showTimePicker = false
     },
+    onAddSeat() {
+      this.toast('新增特殊席位（占位）')
+    },
     limitLabel(val) {
       if (val === -1) return '禁止'
       if (val === null || val === undefined) return '不限'
@@ -763,7 +775,7 @@ export default {
 <style>
 .page {
   min-height: 100vh;
-  background: #ffffff;
+  background: #f6f7fb;
 }
 
 .tabs {
@@ -771,6 +783,7 @@ export default {
   flex-direction: row;
   background: #ffffff;
   padding: 18rpx 24rpx 0;
+  border-bottom: 2rpx solid rgba(0, 0, 0, 0.06);
 }
 
 .tab {
@@ -796,7 +809,7 @@ export default {
   height: 6rpx;
   border-radius: 6rpx;
   margin-top: 16rpx;
-  background: #1d4ed8;
+  background: #10b981;
 }
 
 .panel {
@@ -883,7 +896,7 @@ export default {
   width: 120rpx;
   height: 72rpx;
   border-radius: 12rpx;
-  background: #2563eb;
+  background: #10b981;
   color: #fff;
   font-size: 28rpx;
   display: flex;
@@ -981,7 +994,7 @@ export default {
 
 .card-action {
   font-size: 26rpx;
-  color: #2563eb;
+  color: #10b981;
 }
 
 .card-meta {
@@ -1050,13 +1063,13 @@ export default {
   width: 26rpx;
   height: 26rpx;
   border-radius: 999rpx;
-  border: 2rpx solid rgba(29, 78, 216, 0.7);
+  border: 2rpx solid rgba(16, 185, 129, 0.8);
   position: relative;
 }
 .feedback-icon::after {
   content: '?';
   font-size: 18rpx;
-  color: rgba(29, 78, 216, 0.9);
+  color: rgba(16, 185, 129, 0.9);
   position: absolute;
   left: 50%;
   top: 50%;
@@ -1065,7 +1078,7 @@ export default {
 
 .feedback-text {
   font-size: 26rpx;
-  color: rgba(29, 78, 216, 0.9);
+  color: rgba(16, 185, 129, 0.9);
 }
 
 .panel--center {
@@ -1076,7 +1089,7 @@ export default {
 
 .center-action {
   margin-top: 36rpx;
-  color: #2563eb;
+  color: #10b981;
   display: flex;
   align-items: center;
   gap: 10rpx;
@@ -1084,12 +1097,12 @@ export default {
 
 .center-plus {
   font-size: 32rpx;
-  color: #2563eb;
+  color: #10b981;
 }
 
 .center-text {
   font-size: 28rpx;
-  color: #2563eb;
+  color: #10b981;
 }
 
 .center-tip {
@@ -1208,7 +1221,7 @@ export default {
   height: 6rpx;
   border-radius: 6rpx;
   margin-top: 14rpx;
-  background: #1d4ed8;
+  background: #10b981;
 }
 
 .editor-body {
@@ -1284,12 +1297,14 @@ export default {
 
 .field-plus {
   font-size: 32rpx;
-  color: #2563eb;
+  color: #10b981;
 }
 
 .field-textarea {
-  margin-top: 12rpx;
+  margin-top: 0;
   min-height: 160rpx;
+  width: 100%;
+  box-sizing: border-box;
   padding: 12rpx 18rpx;
   border-radius: 10rpx;
   background: #f3f4f6;
@@ -1333,7 +1348,7 @@ export default {
 }
 
 .btn-primary {
-  background: #2563eb;
+  background: #10b981;
   color: #ffffff;
 }
 
@@ -1465,15 +1480,62 @@ export default {
 }
 
 .limit-icon--tank {
-  background: #3b82f6;
+  background-image: url('/static/icons/tank.svg');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
 }
 
 .limit-icon--healer {
-  background: #22c55e;
+  background-image: url('/static/icons/healer.svg');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
 }
 
 .limit-icon--dps {
-  background: #ef4444;
+  background-image: url('/static/icons/dps.svg');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+
+.seat-panel {
+  padding-top: 14rpx;
+  padding-bottom: 10rpx;
+}
+
+.seat-add {
+  padding: 34rpx 0 18rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10rpx;
+  color: #10b981;
+}
+
+.seat-add-plus {
+  font-size: 34rpx;
+  line-height: 1;
+}
+
+.seat-add-text {
+  font-size: 30rpx;
+  line-height: 1;
+}
+
+.seat-tip {
+  display: block;
+  padding: 0 8rpx;
+  margin-top: 22rpx;
+  font-size: 26rpx;
+  color: rgba(17, 24, 39, 0.45);
+  line-height: 40rpx;
+  text-align: center;
+}
+
+.seat-tip--danger {
+  color: #ef4444;
 }
 
 .limit-row-right {
