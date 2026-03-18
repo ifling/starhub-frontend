@@ -17,7 +17,7 @@ app = FastAPI(
     swagger_favicon_url="/swagger/favicon-32x32.png",
 )
 
-app.mount("/swagger", StaticFiles(directory=swagger_ui_bundle.swagger_ui_3_path), name="swagger")
+app.mount("/swagger", StaticFiles(directory=swagger_ui_bundle.swagger_ui_path), name="swagger")
 
 origins = [o.strip() for o in settings.cors_allow_origins.split(",") if o.strip()]
 app.add_middleware(
