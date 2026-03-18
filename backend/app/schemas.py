@@ -14,6 +14,7 @@ class ActivityCreate(BaseModel):
 class ActivityOut(BaseModel):
     id: uuid.UUID
     code: str
+    creator_id: str
     title: str
     type: str
     deadline_at: dt.datetime | None

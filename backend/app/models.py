@@ -14,6 +14,8 @@ class Activity(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     code: Mapped[str] = mapped_column(String(12), unique=True, index=True, nullable=False)
 
+    creator_id: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
+
     title: Mapped[str] = mapped_column(String(120), nullable=False)
     type: Mapped[str] = mapped_column(String(24), nullable=False, default="副本")
     deadline_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

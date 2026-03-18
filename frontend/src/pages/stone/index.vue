@@ -44,7 +44,29 @@
         <view class="search-btn" @click="onSearch">搜索</view>
       </view>
 
-      <text class="empty-text empty-text--created">
+      <view v-if="createdLoading" class="loading-text">加载中...</view>
+
+      <view v-else-if="createdListFiltered.length" class="created-list">
+        <view
+          v-for="act in createdListFiltered"
+          :key="act.id"
+          class="created-item"
+        >
+          <view class="created-item__row">
+            <text class="created-title">{{ act.title }}</text>
+          </view>
+          <view class="created-item__row created-item__row--meta">
+            <text class="created-meta">截止</text>
+            <text class="created-meta">{{ formatDeadline(act.deadline_at) }}</text>
+          </view>
+          <view class="created-item__row created-item__row--actions">
+            <text class="created-action" @click="onEdit(act)">编辑</text>
+            <text class="created-action created-action--danger" @click="onDelete(act)">删除</text>
+          </view>
+        </view>
+      </view>
+
+      <text v-else class="empty-text empty-text--created">
         您尚未创建任何活动（未过期的），可以点击上方的按钮查看全部。
       </text>
 
@@ -419,6 +441,8 @@
 </template>
 
 <script>
+import { request } from '../../utils/request'
+
 export default {
   name: 'StonePage',
   data() {
@@ -434,6 +458,9 @@ export default {
       code: '',
       hideExpired: true,
       sortAsc: true,
+      createdLoading: false,
+      createdList: [],
+      editingId: null,
       showEditor: false,
       editorTabs: [
         { key: 'basic', label: '基本信息' },
@@ -488,6 +515,42 @@ export default {
       })(),
     }
   },
+  computed: {
+    createdListFiltered() {
+      const kw = (this.keyword || '').trim()
+      let list = Array.isArray(this.createdList) ? this.createdList.slice() : []
+      if (kw) {
+        list = list.filter((a) => (a.title || '').includes(kw))
+      }
+      if (this.hideExpired) {
+        const now = Date.now()
+        list = list.filter((a) => {
+          if (!a.deadline_at) return true
+          const t = Date.parse(a.deadline_at)
+          if (Number.isNaN(t)) return true
+          return t >= now
+        })
+      }
+      list.sort((a, b) => {
+        const ta = Date.parse(a.created_at || '') || 0
+        const tb = Date.parse(b.created_at || '') || 0
+        return this.sortAsc ? ta - tb : tb - ta
+      })
+      return list
+    },
+  },
+  watch: {
+    activeTab(val) {
+      if (val === 'created') {
+        this.fetchCreated()
+      }
+    },
+  },
+  onShow() {
+    if (this.activeTab === 'created') {
+      this.fetchCreated()
+    }
+  },
   methods: {
     toast(title) {
       uni.showToast({ title, icon: 'none' })
@@ -501,6 +564,10 @@ export default {
       this.toast(this.hideExpired ? '已隐藏过期' : '已显示过期（占位）')
     },
     onCreate() {
+      this.editingId = null
+      this.form.title = ''
+      this.form.type = '副本'
+      this.form.desc = ''
       const now = new Date()
       const future = new Date(
         now.getFullYear(),
@@ -514,13 +581,43 @@ export default {
       this.showEditor = true
     },
     onSearch() {
-      this.toast('搜索（占位）')
+      // computed will filter
     },
-    onEdit() {
-      this.toast('编辑（占位）')
+    onEdit(act) {
+      this.editingId = act.id
+      this.form.title = act.title || ''
+      this.form.type = act.type || '副本'
+      this.form.desc = act.desc || ''
+      const dt = act.deadline_at ? new Date(act.deadline_at) : null
+      if (dt && !Number.isNaN(dt.getTime())) {
+        const y = dt.getFullYear()
+        const m = String(dt.getMonth() + 1).padStart(2, '0')
+        const d = String(dt.getDate()).padStart(2, '0')
+        const hh = String(dt.getHours()).padStart(2, '0')
+        const mm = String(dt.getMinutes()).padStart(2, '0')
+        this.form.deadlineDate = `${y}-${m}-${d}`
+        this.form.deadlineTime = `${hh}:${mm}`
+      }
+      this.activeEditorTab = 'basic'
+      this.showEditor = true
     },
-    onDelete() {
-      this.toast('删除（占位）')
+    async onDelete(act) {
+      const ok = await new Promise((resolve) => {
+        uni.showModal({
+          title: '确认删除',
+          content: `删除活动「${act.title || ''}」？`,
+          success: (res) => resolve(!!res.confirm),
+          fail: () => resolve(false),
+        })
+      })
+      if (!ok) return
+      try {
+        await request(`/activities/${act.id}`, { method: 'DELETE' })
+        this.createdList = this.createdList.filter((a) => a.id !== act.id)
+        this.toast('已删除')
+      } catch (e) {
+        this.toast('删除失败')
+      }
     },
     onFeedback() {
       this.toast('反馈（占位）')
@@ -538,8 +635,71 @@ export default {
       this.toast('导入模板（占位）')
     },
     onSubmit() {
-      this.toast('保存活动（占位）')
-      this.showEditor = false
+      this.submitActivity()
+    },
+    async fetchCreated() {
+      if (this.createdLoading) return
+      this.createdLoading = true
+      try {
+        const rows = await request('/activities/mine')
+        this.createdList = Array.isArray(rows) ? rows : []
+      } catch (e) {
+        this.toast('加载失败')
+      } finally {
+        this.createdLoading = false
+      }
+    },
+    buildDeadlineISO() {
+      const d = (this.form.deadlineDate || '').trim()
+      const t = (this.form.deadlineTime || '').trim()
+      if (!d || !t) return null
+      const iso = `${d}T${t}:00`
+      const dt = new Date(iso)
+      if (Number.isNaN(dt.getTime())) return null
+      return dt.toISOString()
+    },
+    async submitActivity() {
+      const title = (this.form.title || '').trim()
+      if (!title) {
+        this.toast('请输入标题')
+        this.activeEditorTab = 'basic'
+        return
+      }
+      const payload = {
+        title,
+        type: this.form.type || '副本',
+        deadline_at: this.buildDeadlineISO(),
+        desc: (this.form.desc || '').trim() || null,
+      }
+      uni.showLoading({ title: '保存中' })
+      try {
+        let act = null
+        if (this.editingId) {
+          act = await request(`/activities/${this.editingId}`, { method: 'PUT', data: payload })
+        } else {
+          act = await request('/activities', { method: 'POST', data: payload })
+        }
+        this.showEditor = false
+        this.editingId = null
+        await this.fetchCreated()
+        this.toast('已保存')
+        return act
+      } catch (e) {
+        this.toast('保存失败')
+      } finally {
+        uni.hideLoading()
+      }
+    },
+    formatDeadline(deadlineAt) {
+      if (!deadlineAt) return '-'
+      const dt = new Date(deadlineAt)
+      if (Number.isNaN(dt.getTime())) return '-'
+      const y = dt.getFullYear()
+      const m = String(dt.getMonth() + 1).padStart(2, '0')
+      const d = String(dt.getDate()).padStart(2, '0')
+      const hh = String(dt.getHours()).padStart(2, '0')
+      const mm = String(dt.getMinutes()).padStart(2, '0')
+      return `${y}-${m}-${d} ${hh}:${mm}`
     },
     onPickType() {
       this.showTypePicker = true
@@ -1119,6 +1279,65 @@ export default {
 
 .empty-text--created {
   margin-bottom: 8rpx;
+}
+
+.loading-text {
+  margin-top: 18rpx;
+  font-size: 26rpx;
+  color: rgba(17, 24, 39, 0.5);
+}
+
+.created-list {
+  margin-top: 18rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.created-item {
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 18rpx 18rpx 14rpx;
+  border: 2rpx solid rgba(0, 0, 0, 0.06);
+}
+
+.created-item__row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.created-item__row--meta {
+  margin-top: 10rpx;
+  color: rgba(17, 24, 39, 0.6);
+  font-size: 24rpx;
+}
+
+.created-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #111827;
+}
+
+.created-meta {
+  font-size: 24rpx;
+  color: rgba(17, 24, 39, 0.55);
+}
+
+.created-item__row--actions {
+  margin-top: 12rpx;
+  justify-content: flex-end;
+  gap: 28rpx;
+}
+
+.created-action {
+  font-size: 26rpx;
+  color: rgba(17, 24, 39, 0.65);
+}
+
+.created-action--danger {
+  color: #ef4444;
 }
 
 .direct-card {
