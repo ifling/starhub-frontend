@@ -546,6 +546,12 @@ export default {
       }
     },
   },
+  onLoad() {
+    // 进入“组队/集合石”页面时就预加载我创建的活动，避免仅在创建成功后才刷新
+    if (this.activeTab === 'created') {
+      this.fetchCreated()
+    }
+  },
   onShow() {
     if (this.activeTab === 'created') {
       this.fetchCreated()
