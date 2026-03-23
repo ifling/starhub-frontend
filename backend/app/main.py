@@ -20,11 +20,14 @@ app = FastAPI(
 
 app.mount("/swagger", StaticFiles(directory=swagger_ui_bundle.swagger_ui_path), name="swagger")
 
-origins = [o.strip() for o in settings.cors_allow_origins.split(",") if o.strip()]
+# 注意：allow_credentials=True 时不能使用 allow_origins=["*"]（浏览器会拒绝），
+# 本地 H5 用 127.0.0.1:5173 跨域时若 .env 里是 *，必须把 credentials 关掉才能带上 Authorization。
+_origins = [o.strip() for o in settings.cors_allow_origins.split(",") if o.strip()]
+_allow_star = not _origins or _origins == ["*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins if origins else ["*"],
-    allow_credentials=True,
+    allow_origins=_origins if _origins else ["*"],
+    allow_credentials=False if _allow_star else True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
