@@ -55,6 +55,10 @@ class ActivityOut(BaseModel):
         from_attributes = True
 
 
+class ActivityMineOut(ActivityOut):
+    signup_count: int = 0
+
+
 class SignupCreate(BaseModel):
     nickname: str = Field(min_length=1, max_length=64)
     role: str | None = Field(default=None, max_length=16)

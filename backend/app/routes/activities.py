@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..deps import get_current_user
 from ..models import Activity, Signup, User
-from ..schemas import ActivityCreate, ActivityOut, SignupCreate, SignupOut
+from ..schemas import ActivityCreate, ActivityMineOut, ActivityOut, SignupCreate, SignupOut
 from ..utils import generate_code
 
 
@@ -44,18 +44,42 @@ def create_activity(
     raise HTTPException(status_code=500, detail="Failed to generate unique code")
 
 
-@router.get("/mine", response_model=list[ActivityOut])
+@router.get("/mine", response_model=list[ActivityMineOut])
 def list_my_activities(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    rows = (
-        db.execute(
-            select(Activity)
-            .where(Activity.owner_user_id == user.id)
-            .order_by(Activity.created_at.desc())
-        )
-        .scalars()
-        .all()
+    # 统计每个活动的报名人数（signups 表记录数）
+    signup_counts = (
+        select(Signup.activity_id.label("activity_id"), func.count(Signup.id).label("signup_count"))
+        .group_by(Signup.activity_id)
+        .subquery()
     )
-    return rows
+
+    rows = db.execute(
+        select(
+            Activity,
+            func.coalesce(signup_counts.c.signup_count, 0).label("signup_count"),
+        )
+        .outerjoin(signup_counts, signup_counts.c.activity_id == Activity.id)
+        .where(Activity.owner_user_id == user.id)
+        .order_by(Activity.created_at.desc())
+    ).all()
+
+    result: list[dict] = []
+    for act, signup_count in rows:
+        result.append(
+            {
+                "id": act.id,
+                "code": act.code,
+                "creator_id": act.creator_id,
+                "owner_user_id": act.owner_user_id,
+                "title": act.title,
+                "type": act.type,
+                "deadline_at": act.deadline_at,
+                "desc": act.desc,
+                "created_at": act.created_at,
+                "signup_count": int(signup_count or 0),
+            }
+        )
+    return result
 
 
 @router.get("", response_model=list[ActivityOut])

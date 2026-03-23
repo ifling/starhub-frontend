@@ -52,16 +52,30 @@
           :key="act.id"
           class="created-item"
         >
-          <view class="created-item__row">
+          <!-- 第一行：标题（过期时显示状态图标） -->
+          <view class="created-item__row created-item__row--title">
             <text class="created-title">{{ act.title }}</text>
+            <view v-if="isExpired(act.deadline_at)" class="created-status-icon" />
           </view>
-          <view class="created-item__row created-item__row--meta">
-            <text class="created-meta">截止</text>
-            <text class="created-meta">{{ formatDeadline(act.deadline_at) }}</text>
+
+          <!-- 第二行：截止（时间图标 + 编辑/删除同一行） -->
+          <view class="created-item__row created-item__row--deadline">
+            <view class="deadline-left">
+              <text class="created-meta created-meta--label">截止</text>
+              <view class="deadline-time-icon" />
+              <text class="created-meta created-meta--time">{{ formatDeadline(act.deadline_at) }}</text>
+            </view>
+            <view class="deadline-actions">
+              <text class="created-action" @click="onEdit(act)">编辑</text>
+              <text class="created-action created-action--danger" @click="onDelete(act)">删除</text>
+            </view>
           </view>
-          <view class="created-item__row created-item__row--actions">
-            <text class="created-action" @click="onEdit(act)">编辑</text>
-            <text class="created-action created-action--danger" @click="onDelete(act)">删除</text>
+
+          <!-- 第三行：活动类型 + 人数图标 + 已报名人数 -->
+          <view class="created-item__row created-item__row--type">
+            <text class="created-type">{{ act.type }}</text>
+            <view class="signup-icon" />
+            <text class="created-signup">+已报名人数 {{ act.signup_count || 0 }}</text>
           </view>
         </view>
       </view>
@@ -731,6 +745,12 @@ export default {
       const mm = String(dt.getMinutes()).padStart(2, '0')
       return `${y}-${m}-${d} ${hh}:${mm}`
     },
+    isExpired(deadlineAt) {
+      if (!deadlineAt) return false
+      const t = Date.parse(deadlineAt)
+      if (Number.isNaN(t)) return false
+      return t < Date.now()
+    },
     onPickType() {
       this.showTypePicker = true
     },
@@ -1344,6 +1364,19 @@ export default {
   font-size: 24rpx;
 }
 
+.created-item__row--title {
+  margin-bottom: 8rpx;
+}
+
+.created-item__row--deadline {
+  margin-bottom: 6rpx;
+}
+
+.created-item__row--type {
+  justify-content: flex-start;
+  gap: 12rpx;
+}
+
 .created-title {
   font-size: 30rpx;
   font-weight: 700;
@@ -1359,6 +1392,56 @@ export default {
   margin-top: 12rpx;
   justify-content: flex-end;
   gap: 28rpx;
+}
+
+.created-status-icon {
+  width: 26rpx;
+  height: 26rpx;
+  background-image: url('/static/icons/deadline-time.svg');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  border-radius: 8rpx;
+}
+
+.deadline-left {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.deadline-actions {
+  display: flex;
+  align-items: center;
+  gap: 28rpx;
+}
+
+.deadline-time-icon {
+  width: 22rpx;
+  height: 22rpx;
+  background-image: url('/static/icons/deadline-time.svg');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+
+.created-type {
+  font-size: 26rpx;
+  color: rgba(17, 24, 39, 0.65);
+}
+
+.signup-icon {
+  width: 26rpx;
+  height: 26rpx;
+  background-image: url('/static/icons/signup-count.svg');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+
+.created-signup {
+  font-size: 26rpx;
+  color: rgba(17, 24, 39, 0.65);
 }
 
 .created-action {
