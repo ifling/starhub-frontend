@@ -74,8 +74,10 @@
           <!-- 第三行：活动类型 + 人数图标 + 已报名人数 -->
           <view class="created-item__row created-item__row--type">
             <text class="created-type">{{ act.type }}</text>
-            <view class="signup-icon" />
-            <text class="created-signup">+已报名人数 {{ act.signup_count || 0 }}</text>
+            <view class="signup-pair">
+              <view class="signup-icon" />
+              <text class="created-signup-count">{{ act.signup_count || 0 }}</text>
+            </view>
           </view>
         </view>
       </view>
@@ -1426,8 +1428,15 @@ export default {
 }
 
 .created-type {
-  font-size: 26rpx;
+  font-size: 24rpx;
   color: rgba(17, 24, 39, 0.65);
+}
+
+.signup-pair {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0;
 }
 
 .signup-icon {
@@ -1437,15 +1446,17 @@ export default {
   background-repeat: no-repeat;
   background-position: center;
   background-size: contain;
+  margin-right: 0;
 }
 
-.created-signup {
-  font-size: 26rpx;
+.created-signup-count {
+  font-size: 24rpx;
   color: rgba(17, 24, 39, 0.65);
+  margin-left: 0;
 }
 
 .created-action {
-  font-size: 26rpx;
+  font-size: 24rpx;
   color: rgba(17, 24, 39, 0.65);
 }
 
