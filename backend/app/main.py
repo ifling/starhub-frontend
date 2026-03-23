@@ -4,8 +4,9 @@ from fastapi.staticfiles import StaticFiles
 import swagger_ui_bundle
 
 from .settings import settings
-from . import models  # noqa: F401
+from . import models  # noqa: F401  # User, Activity, Signup
 from .routes.activities import router as activities_router
+from .routes.auth import router as auth_router
 
 
 app = FastAPI(
@@ -34,5 +35,6 @@ def health():
     return {"ok": True}
 
 
+app.include_router(auth_router)
 app.include_router(activities_router)
 

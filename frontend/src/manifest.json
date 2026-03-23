@@ -65,6 +65,13 @@
     "mp-toutiao" : {
         "usingComponents" : true
     },
+    "mp-qq" : {
+        "appid" : "",
+        "setting" : {
+            "urlCheck" : false
+        },
+        "usingComponents" : true
+    },
     "uniStatistics": {  
         "enable": false
     },

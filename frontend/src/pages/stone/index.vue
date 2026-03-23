@@ -442,6 +442,7 @@
 
 <script>
 import { request } from '../../utils/request'
+import { isLoggedIn } from '../../utils/auth'
 
 export default {
   name: 'StonePage',
@@ -542,6 +543,12 @@ export default {
   watch: {
     activeTab(val) {
       if (val === 'created') {
+        // #ifdef H5
+        if (!isLoggedIn()) {
+          uni.navigateTo({ url: '/pages/login/index' })
+          return
+        }
+        // #endif
         this.fetchCreated()
       }
     },
@@ -549,11 +556,22 @@ export default {
   onLoad() {
     // 进入“组队/集合石”页面时就预加载我创建的活动，避免仅在创建成功后才刷新
     if (this.activeTab === 'created') {
+      // #ifdef H5
+      if (!isLoggedIn()) {
+        uni.navigateTo({ url: '/pages/login/index' })
+        return
+      }
+      // #endif
       this.fetchCreated()
     }
   },
   onShow() {
     if (this.activeTab === 'created') {
+      // #ifdef H5
+      if (!isLoggedIn()) {
+        return
+      }
+      // #endif
       this.fetchCreated()
     }
   },
@@ -570,6 +588,12 @@ export default {
       this.toast(this.hideExpired ? '已隐藏过期' : '已显示过期（占位）')
     },
     onCreate() {
+      // #ifdef H5
+      if (!isLoggedIn()) {
+        uni.navigateTo({ url: '/pages/login/index' })
+        return
+      }
+      // #endif
       this.editingId = null
       this.form.title = ''
       this.form.type = '副本'

@@ -1,7 +1,36 @@
 import datetime as dt
 import uuid
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
+
+
+class WebRegister(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+
+
+class WebLogin(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=1, max_length=128)
+
+
+class MiniProgramCode(BaseModel):
+    code: str = Field(min_length=4, max_length=256)
+
+
+class UserPublic(BaseModel):
+    id: uuid.UUID
+    channel: str
+    email: str | None
+
+    class Config:
+        from_attributes = True
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserPublic
 
 
 class ActivityCreate(BaseModel):
@@ -15,6 +44,7 @@ class ActivityOut(BaseModel):
     id: uuid.UUID
     code: str
     creator_id: str
+    owner_user_id: uuid.UUID | None = None
     title: str
     type: str
     deadline_at: dt.datetime | None

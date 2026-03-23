@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-import re
-
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi import Header
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..models import Activity, Signup
+from ..deps import get_current_user
+from ..models import Activity, Signup, User
 from ..schemas import ActivityCreate, ActivityOut, SignupCreate, SignupOut
 from ..utils import generate_code
 
@@ -17,21 +15,18 @@ from ..utils import generate_code
 router = APIRouter(prefix="/activities", tags=["activities"])
 
 
-_CLIENT_ID_RE = re.compile(r"^[A-Za-z0-9_-]{6,64}$")
-
-
-def get_client_id(x_client_id: str | None = Header(default=None, alias="X-Client-Id")) -> str:
-    if not x_client_id or not _CLIENT_ID_RE.match(x_client_id):
-        raise HTTPException(status_code=400, detail="Missing or invalid X-Client-Id")
-    return x_client_id
-
-
 @router.post("", response_model=ActivityOut, status_code=status.HTTP_201_CREATED)
-def create_activity(payload: ActivityCreate, db: Session = Depends(get_db), client_id: str = Depends(get_client_id)):
+def create_activity(
+    payload: ActivityCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    uid_str = str(user.id)
     for _ in range(10):
         act = Activity(
             code=generate_code(),
-            creator_id=client_id,
+            creator_id=uid_str,
+            owner_user_id=user.id,
             title=payload.title,
             type=payload.type,
             deadline_at=payload.deadline_at,
@@ -50,11 +45,11 @@ def create_activity(payload: ActivityCreate, db: Session = Depends(get_db), clie
 
 
 @router.get("/mine", response_model=list[ActivityOut])
-def list_my_activities(db: Session = Depends(get_db), client_id: str = Depends(get_client_id)):
+def list_my_activities(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     rows = (
         db.execute(
             select(Activity)
-            .where(Activity.creator_id == client_id)
+            .where(Activity.owner_user_id == user.id)
             .order_by(Activity.created_at.desc())
         )
         .scalars()
@@ -78,11 +73,15 @@ def get_activity(activity_id: str, db: Session = Depends(get_db)):
 
 
 @router.delete("/{activity_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_activity(activity_id: str, db: Session = Depends(get_db), client_id: str = Depends(get_client_id)):
+def delete_activity(
+    activity_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
     act = db.get(Activity, activity_id)
     if not act:
         raise HTTPException(status_code=404, detail="Activity not found")
-    if act.creator_id != client_id:
+    if act.owner_user_id != user.id:
         raise HTTPException(status_code=403, detail="Forbidden")
     db.delete(act)
     db.commit()
@@ -94,12 +93,12 @@ def update_activity(
     activity_id: str,
     payload: ActivityCreate,
     db: Session = Depends(get_db),
-    client_id: str = Depends(get_client_id),
+    user: User = Depends(get_current_user),
 ):
     act = db.get(Activity, activity_id)
     if not act:
         raise HTTPException(status_code=404, detail="Activity not found")
-    if act.creator_id != client_id:
+    if act.owner_user_id != user.id:
         raise HTTPException(status_code=403, detail="Forbidden")
     act.title = payload.title
     act.type = payload.type

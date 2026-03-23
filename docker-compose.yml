@@ -16,6 +16,12 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-starhub}
       CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-*}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production-use-long-random-string}
+      JWT_EXPIRES_MINUTES: ${JWT_EXPIRES_MINUTES:-10080}
+      WECHAT_MP_APPID: ${WECHAT_MP_APPID:-}
+      WECHAT_MP_SECRET: ${WECHAT_MP_SECRET:-}
+      QQ_MP_APPID: ${QQ_MP_APPID:-}
+      QQ_MP_SECRET: ${QQ_MP_SECRET:-}
     depends_on:
       - db
     ports:

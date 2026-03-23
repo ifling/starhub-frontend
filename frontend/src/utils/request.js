@@ -1,17 +1,17 @@
 import { API_BASE_URL } from './config'
-
-function getClientId() {
-  const key = 'starhub_client_id'
-  let cid = uni.getStorageSync(key)
-  if (cid) return cid
-  cid = `c_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`
-  uni.setStorageSync(key, cid)
-  return cid
-}
+import { clearToken, getToken } from './auth'
 
 export function request(path, options = {}) {
   const url = path.startsWith('http') ? path : `${API_BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`
-  const headers = { ...(options.header || {}), 'X-Client-Id': getClientId() }
+  const token = getToken()
+  const method = (options.method || 'GET').toUpperCase()
+  const headers = { ...(options.header || {}) }
+  if (method !== 'GET' && method !== 'DELETE' && !headers['Content-Type'] && !headers['content-type']) {
+    headers['Content-Type'] = 'application/json'
+  }
+  if (token) {
+    headers.Authorization = `Bearer ${token}`
+  }
 
   return new Promise((resolve, reject) => {
     uni.request({
@@ -25,10 +25,21 @@ export function request(path, options = {}) {
           resolve(res.data)
           return
         }
+        if (res.statusCode === 401) {
+          clearToken()
+          // #ifdef H5
+          const pages = getCurrentPages()
+          const cur = pages[pages.length - 1]
+          const route = cur && cur.route ? cur.route : ''
+          if (route && !route.includes('pages/login')) {
+            uni.showToast({ title: '请先登录', icon: 'none' })
+            uni.navigateTo({ url: '/pages/login/index' })
+          }
+          // #endif
+        }
         reject(res)
       },
       fail: reject,
     })
   })
 }
-
