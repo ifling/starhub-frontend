@@ -91,38 +91,56 @@ export default {
           this.toast('两次密码不一致')
           return
         }
-        uni.showLoading({ title: '注册中' })
+        uni.showLoading({ title: '注册中', mask: true })
+        let ok = false
         try {
           const data = await request('/auth/web/register', {
             method: 'POST',
             data: { email, password },
           })
           setToken(data.access_token)
-          this.toast('注册成功')
-          setTimeout(() => uni.navigateBack({ fail: () => uni.switchTab({ url: '/pages/index/index' }) }), 300)
+          ok = true
         } catch (e) {
-          const msg = e.data && e.data.detail ? String(e.data.detail) : '注册失败'
+          const d = e.data && e.data.detail
+          const msg = Array.isArray(d)
+            ? d.map((x) => x.msg || JSON.stringify(x)).join('; ')
+            : d
+              ? String(d)
+              : '注册失败'
           this.toast(msg)
         } finally {
           uni.hideLoading()
         }
+        if (ok) {
+          this.toast('注册成功')
+          setTimeout(() => uni.navigateBack({ fail: () => uni.switchTab({ url: '/pages/index/index' }) }), 300)
+        }
         return
       }
 
-      uni.showLoading({ title: '登录中' })
+      uni.showLoading({ title: '登录中', mask: true })
+      let loginOk = false
       try {
         const data = await request('/auth/web/login', {
           method: 'POST',
           data: { email, password },
         })
         setToken(data.access_token)
-        this.toast('登录成功')
-        setTimeout(() => uni.navigateBack({ fail: () => uni.switchTab({ url: '/pages/index/index' }) }), 300)
+        loginOk = true
       } catch (e) {
-        const msg = e.data && e.data.detail ? String(e.data.detail) : '登录失败'
+        const d = e.data && e.data.detail
+        const msg = Array.isArray(d)
+          ? d.map((x) => x.msg || JSON.stringify(x)).join('; ')
+          : d
+            ? String(d)
+            : '登录失败'
         this.toast(msg)
       } finally {
         uni.hideLoading()
+      }
+      if (loginOk) {
+        this.toast('登录成功')
+        setTimeout(() => uni.navigateBack({ fail: () => uni.switchTab({ url: '/pages/index/index' }) }), 300)
       }
     },
   },

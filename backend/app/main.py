@@ -20,17 +20,26 @@ app = FastAPI(
 
 app.mount("/swagger", StaticFiles(directory=swagger_ui_bundle.swagger_ui_path), name="swagger")
 
-# 注意：allow_credentials=True 时不能使用 allow_origins=["*"]（浏览器会拒绝），
-# 本地 H5 用 127.0.0.1:5173 跨域时若 .env 里是 *，必须把 credentials 关掉才能带上 Authorization。
+# CORS_ALLOW_ORIGINS=* 时不能用 allow_origins=["*"] + credentials（浏览器会拒）。
+# 用 allow_origin_regex 匹配常见 Origin，Starlette 会把响应头设为「请求里的 Origin」，可带 Authorization。
 _origins = [o.strip() for o in settings.cors_allow_origins.split(",") if o.strip()]
 _allow_star = not _origins or _origins == ["*"]
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=_origins if _origins else ["*"],
-    allow_credentials=False if _allow_star else True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+if _allow_star:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=r"https?://[^\s]+",
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 
 @app.get("/health")

@@ -3,6 +3,7 @@ from __future__ import annotations
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
 from ..db import get_db
@@ -39,8 +40,18 @@ def web_register(payload: WebRegister, db: Session = Depends(get_db)):
         openid=None,
     )
     db.add(user)
-    db.commit()
-    db.refresh(user)
+    try:
+        db.commit()
+        db.refresh(user)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Email already registered") from None
+    except OperationalError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=503,
+            detail="Database error (did you run migrations? alembic upgrade head)",
+        ) from e
     return _token_for_user(user)
 
 
