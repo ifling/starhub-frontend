@@ -51,6 +51,7 @@
           v-for="act in createdListFiltered"
           :key="act.id"
           class="created-item"
+          @click="onOpenSignup(act)"
         >
           <!-- 第一行：标题（过期时显示状态图标） -->
           <view class="created-item__row created-item__row--title">
@@ -66,8 +67,8 @@
               <text class="created-meta created-meta--time">{{ formatDeadline(act.deadline_at) }}</text>
             </view>
             <view class="deadline-actions">
-              <text class="created-action" @click="onEdit(act)">编辑</text>
-              <text class="created-action created-action--danger" @click="onDelete(act)">删除</text>
+              <text class="created-action" @click.stop="onEdit(act)">编辑</text>
+              <text class="created-action created-action--danger" @click.stop="onDelete(act)">删除</text>
             </view>
           </view>
 
@@ -674,6 +675,15 @@ export default {
     onJoin() {
       this.toast('进入活动报名（占位）')
     },
+    onOpenSignup(act) {
+      if (!act || !act.id) {
+        this.toast('活动数据无效')
+        return
+      }
+      uni.navigateTo({
+        url: `/pages/signup/index?activityId=${encodeURIComponent(act.id)}`,
+      })
+    },
     onCloseEditor() {
       this.showEditor = false
     },
@@ -745,7 +755,9 @@ export default {
       const d = String(dt.getDate()).padStart(2, '0')
       const hh = String(dt.getHours()).padStart(2, '0')
       const mm = String(dt.getMinutes()).padStart(2, '0')
-      return `${y}-${m}-${d} ${hh}:${mm}`
+      const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
+      const weekday = weekdays[dt.getDay()]
+      return `${y}-${m}-${d} ${hh}:${mm} ${weekday}`
     },
     isExpired(deadlineAt) {
       if (!deadlineAt) return false
