@@ -19,12 +19,12 @@
 
     <view class="card">
       <view class="field">
-        <text class="label">邮箱</text>
+        <text class="label">用户名</text>
         <input
           class="input"
-          v-model="email"
+          v-model="username"
           type="text"
-          placeholder="name@example.com"
+          placeholder="3-32 位字母、数字、下划线或中文"
           placeholder-class="ph"
         />
       </view>
@@ -54,19 +54,20 @@
       </view>
     </view>
 
-    <text class="tip">网页端使用邮箱注册；微信 / QQ 小程序请使用各端一键登录。</text>
+    <text class="tip">网页端使用用户名注册；微信 / QQ 小程序请使用各端一键登录。</text>
   </view>
 </template>
 
 <script>
-import { request } from '../../utils/request'
+import { formatApiError, request } from '../../utils/request'
+import { webAuthBody } from '../../utils/webAuth'
 import { setToken } from '../../utils/auth'
 
 export default {
   data() {
     return {
       mode: 'login',
-      email: '',
+      username: '',
       password: '',
       password2: '',
     }
@@ -76,10 +77,10 @@ export default {
       uni.showToast({ title, icon: 'none' })
     },
     async onSubmit() {
-      const email = (this.email || '').trim()
+      const username = (this.username || '').trim()
       const password = this.password || ''
-      if (!email || !password) {
-        this.toast('请填写邮箱和密码')
+      if (!username || !password) {
+        this.toast('请填写用户名和密码')
         return
       }
       if (this.mode === 'register') {
@@ -93,23 +94,22 @@ export default {
         }
         uni.showLoading({ title: '注册中', mask: true })
         let ok = false
+        let errMsg = null
         try {
           const data = await request('/auth/web/register', {
             method: 'POST',
-            data: { email, password },
+            data: webAuthBody(username, password),
           })
           setToken(data.access_token)
           ok = true
         } catch (e) {
-          const d = e.data && e.data.detail
-          const msg = Array.isArray(d)
-            ? d.map((x) => x.msg || JSON.stringify(x)).join('; ')
-            : d
-              ? String(d)
-              : '注册失败'
-          this.toast(msg)
+          errMsg = formatApiError(e)
         } finally {
           uni.hideLoading()
+        }
+        if (errMsg) {
+          this.toast(errMsg)
+          return
         }
         if (ok) {
           this.toast('注册成功')
@@ -120,23 +120,22 @@ export default {
 
       uni.showLoading({ title: '登录中', mask: true })
       let loginOk = false
+      let loginErr = null
       try {
         const data = await request('/auth/web/login', {
           method: 'POST',
-          data: { email, password },
+          data: webAuthBody(username, password),
         })
         setToken(data.access_token)
         loginOk = true
       } catch (e) {
-        const d = e.data && e.data.detail
-        const msg = Array.isArray(d)
-          ? d.map((x) => x.msg || JSON.stringify(x)).join('; ')
-          : d
-            ? String(d)
-            : '登录失败'
-        this.toast(msg)
+        loginErr = formatApiError(e)
       } finally {
         uni.hideLoading()
+      }
+      if (loginErr) {
+        this.toast(loginErr)
+        return
       }
       if (loginOk) {
         this.toast('登录成功')

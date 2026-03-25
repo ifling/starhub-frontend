@@ -19,6 +19,10 @@ CHANNEL_WEIXIN_MP = "weixin_mp"
 CHANNEL_QQ_MP = "qq_mp"
 
 
+def _normalize_username(s: str) -> str:
+    return (s or "").strip().lower()
+
+
 def _token_for_user(user: User) -> TokenResponse:
     token = create_access_token(user_id=user.id, channel=user.channel)
     return TokenResponse(
@@ -29,13 +33,15 @@ def _token_for_user(user: User) -> TokenResponse:
 
 @router.post("/web/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 def web_register(payload: WebRegister, db: Session = Depends(get_db)):
-    existing = db.execute(select(User).where(User.email == str(payload.email))).scalar_one_or_none()
+    uname = _normalize_username(payload.username)
+    existing = db.execute(select(User).where(User.username == uname)).scalar_one_or_none()
     if existing:
-        raise HTTPException(status_code=409, detail="Email already registered")
+        raise HTTPException(status_code=409, detail="Username already taken")
 
     user = User(
         channel=CHANNEL_WEB,
-        email=str(payload.email).lower(),
+        username=uname,
+        email=None,
         password_hash=hash_password(payload.password),
         openid=None,
     )
@@ -45,7 +51,7 @@ def web_register(payload: WebRegister, db: Session = Depends(get_db)):
         db.refresh(user)
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=409, detail="Email already registered") from None
+        raise HTTPException(status_code=409, detail="Username already taken") from None
     except OperationalError as e:
         db.rollback()
         raise HTTPException(
@@ -57,11 +63,12 @@ def web_register(payload: WebRegister, db: Session = Depends(get_db)):
 
 @router.post("/web/login", response_model=TokenResponse)
 def web_login(payload: WebLogin, db: Session = Depends(get_db)):
-    user = db.execute(select(User).where(User.email == str(payload.email).lower())).scalar_one_or_none()
+    uname = _normalize_username(payload.username)
+    user = db.execute(select(User).where(User.username == uname)).scalar_one_or_none()
     if not user or user.channel != CHANNEL_WEB or not user.password_hash:
-        raise HTTPException(status_code=401, detail="Invalid email or password")
+        raise HTTPException(status_code=401, detail="Invalid username or password")
     if not verify_password(payload.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Invalid email or password")
+        raise HTTPException(status_code=401, detail="Invalid username or password")
     return _token_for_user(user)
 
 
@@ -138,6 +145,7 @@ def auth_weixin_mp(payload: MiniProgramCode, db: Session = Depends(get_db)):
     if not user:
         user = User(
             channel=CHANNEL_WEIXIN_MP,
+            username=None,
             email=None,
             password_hash=None,
             openid=openid,
@@ -157,6 +165,7 @@ def auth_qq_mp(payload: MiniProgramCode, db: Session = Depends(get_db)):
     if not user:
         user = User(
             channel=CHANNEL_QQ_MP,
+            username=None,
             email=None,
             password_hash=None,
             openid=openid,

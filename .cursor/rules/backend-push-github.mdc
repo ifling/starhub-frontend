@@ -1,0 +1,17 @@
+---
+description: 修改 backend 后需提交并推送到 GitHub，便于服务器拉取更新
+globs: backend/**
+alwaysApply: false
+---
+
+# 后端变更后的 Git 流程
+
+本仓库通过 GitHub 向服务器同步代码。若在本会话中**改动了 `backend/`**（含 `app/`、`alembic/`、`requirements.txt` 等），在收尾阶段应：
+
+1. **不要遗漏**：将相关改动 `git add`（勿提交 `__pycache__`、`*.pyc`、本地 `.env`）。
+2. **提交**：使用清晰的中文或英文 commit message，说明改了什么（例如 API、迁移、配置）。
+3. **推送**：执行 `git push origin`（或当前跟踪分支对应的远程），确保 **GitHub 上可见**，服务器才能 `git pull` 部署。
+
+若当前环境无法推送（无凭据、只读等），需**明确告知用户**自行在本地执行 commit/push，并列出待提交路径。
+
+数据库迁移若在代码里新增，需在部署说明或回复中提醒：服务器上执行 `alembic upgrade head`（或项目既定流程）。

@@ -1,17 +1,39 @@
 import datetime as dt
 import uuid
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class WebRegister(BaseModel):
-    email: EmailStr
+    """新接口以 username 为准；email 仅兼容旧部署，路由层不使用。"""
+
+    model_config = ConfigDict(extra="ignore")
+
+    username: str = Field(
+        min_length=3,
+        max_length=32,
+        pattern=r"^[a-zA-Z0-9_\u4e00-\u9fff]+$",
+    )
     password: str = Field(min_length=8, max_length=128)
+    email: str | None = Field(default=None, description="Legacy; ignored")
+
+    @field_validator("username", mode="before")
+    @classmethod
+    def strip_username(cls, v: object) -> object:
+        return v.strip() if isinstance(v, str) else v
 
 
 class WebLogin(BaseModel):
-    email: EmailStr
+    model_config = ConfigDict(extra="ignore")
+
+    username: str = Field(min_length=1, max_length=255)
     password: str = Field(min_length=1, max_length=128)
+    email: str | None = Field(default=None, description="Legacy; ignored")
+
+    @field_validator("username", mode="before")
+    @classmethod
+    def strip_username(cls, v: object) -> object:
+        return v.strip() if isinstance(v, str) else v
 
 
 class MiniProgramCode(BaseModel):
@@ -21,6 +43,7 @@ class MiniProgramCode(BaseModel):
 class UserPublic(BaseModel):
     id: uuid.UUID
     channel: str
+    username: str | None
     email: str | None
 
     class Config:
