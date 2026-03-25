@@ -1,4 +1,5 @@
 const TOKEN_KEY = 'starhub_access_token'
+const PROFILE_KEY = 'starhub_user_profile'
 
 export function getToken() {
   try {
@@ -8,8 +9,27 @@ export function getToken() {
   }
 }
 
-export function setToken(token) {
+/** @param {Record<string, unknown> | null | undefined} [user] 来自登录接口的 user；传入则写入本地展示信息 */
+export function setToken(token, user) {
   uni.setStorageSync(TOKEN_KEY, token || '')
+  if (arguments.length < 2) return
+  try {
+    if (user && typeof user === 'object') {
+      uni.setStorageSync(
+        PROFILE_KEY,
+        JSON.stringify({
+          id: user.id,
+          channel: user.channel,
+          username: user.username || '',
+          email: user.email || '',
+        })
+      )
+    } else {
+      uni.removeStorageSync(PROFILE_KEY)
+    }
+  } catch {
+    // ignore
+  }
 }
 
 export function clearToken() {
@@ -17,6 +37,11 @@ export function clearToken() {
     uni.removeStorageSync(TOKEN_KEY)
   } catch {
     uni.setStorageSync(TOKEN_KEY, '')
+  }
+  try {
+    uni.removeStorageSync(PROFILE_KEY)
+  } catch {
+    // ignore
   }
 }
 
@@ -61,4 +86,34 @@ export function getUserIdFromToken() {
   const payload = decodeJwtPayload(token)
   if (!payload || !payload.sub) return ''
   return String(payload.sub)
+}
+
+function getStoredProfile() {
+  try {
+    const raw = uni.getStorageSync(PROFILE_KEY)
+    if (!raw) return null
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
+/** 「我的」等展示用：用户名 / 邮箱 / 渠道昵称；不含用户 ID */
+export function getDisplayName() {
+  const p = getStoredProfile()
+  if (p) {
+    if (p.username) return String(p.username)
+    if (p.email) return String(p.email)
+    if (p.channel === 'weixin_mp') return '微信用户'
+    if (p.channel === 'qq_mp') return 'QQ 用户'
+    if (p.channel === 'web') return '用户'
+  }
+  const payload = decodeJwtPayload(getToken())
+  if (!payload) return ''
+  if (payload.username) return String(payload.username)
+  const ch = payload.channel
+  if (ch === 'weixin_mp') return '微信用户'
+  if (ch === 'qq_mp') return 'QQ 用户'
+  if (ch === 'web') return '用户'
+  return ''
 }

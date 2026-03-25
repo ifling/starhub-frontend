@@ -24,7 +24,7 @@ def _normalize_username(s: str) -> str:
 
 
 def _token_for_user(user: User) -> TokenResponse:
-    token = create_access_token(user_id=user.id, channel=user.channel)
+    token = create_access_token(user_id=user.id, channel=user.channel, username=user.username)
     return TokenResponse(
         access_token=token,
         user=UserPublic.model_validate(user),

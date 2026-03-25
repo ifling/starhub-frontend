@@ -100,7 +100,7 @@ export default {
             method: 'POST',
             data: webAuthBody(username, password),
           })
-          setToken(data.access_token)
+          setToken(data.access_token, data.user)
           ok = true
         } catch (e) {
           errMsg = formatApiError(e)
@@ -126,7 +126,7 @@ export default {
           method: 'POST',
           data: webAuthBody(username, password),
         })
-        setToken(data.access_token)
+        setToken(data.access_token, data.user)
         loginOk = true
       } catch (e) {
         loginErr = formatApiError(e)

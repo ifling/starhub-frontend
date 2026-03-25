@@ -3,17 +3,17 @@
     <text class="title">我的</text>
     <text class="desc">这里以后可以放“我的报名”、“个人信息”等内容。</text>
     <view v-if="loggedIn" class="id-box">
-      <text class="id-label">用户ID</text>
-      <text class="id-value">{{ userId || '-' }}</text>
+      <text class="id-label">用户名</text>
+      <text class="id-value">{{ displayName || '—' }}</text>
     </view>
     <view v-else class="id-box id-box--muted">
-      <text class="id-label">用户ID</text>
+      <text class="id-label">用户名</text>
       <text class="id-value">未登录</text>
     </view>
 
     <!-- #ifdef H5 -->
     <view v-if="!loggedIn" class="btn" @click="goLogin">
-      <text class="btn-text">邮箱登录 / 注册</text>
+      <text class="btn-text">用户名登录 / 注册</text>
     </view>
     <view v-else class="btn btn--ghost" @click="logout">
       <text class="btn-text btn-text--dark">退出登录</text>
@@ -23,19 +23,19 @@
 </template>
 
 <script>
-import { clearToken, getUserIdFromToken, isLoggedIn } from '../../utils/auth'
+import { clearToken, getDisplayName, isLoggedIn } from '../../utils/auth'
 
 export default {
   name: 'MinePage',
   data() {
     return {
       loggedIn: false,
-      userId: '',
+      displayName: '',
     }
   },
   onShow() {
     this.loggedIn = isLoggedIn()
-    this.userId = getUserIdFromToken()
+    this.displayName = getDisplayName()
   },
   methods: {
     goLogin() {
@@ -44,6 +44,7 @@ export default {
     logout() {
       clearToken()
       this.loggedIn = false
+      this.displayName = ''
       uni.showToast({ title: '已退出', icon: 'none' })
     },
   },

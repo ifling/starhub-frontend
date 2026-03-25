@@ -19,7 +19,7 @@ def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
 
-def create_access_token(*, user_id: uuid.UUID, channel: str) -> str:
+def create_access_token(*, user_id: uuid.UUID, channel: str, username: str | None = None) -> str:
     now = dt.datetime.now(dt.timezone.utc)
     exp = now + dt.timedelta(minutes=settings.jwt_expires_minutes)
     payload = {
@@ -28,6 +28,8 @@ def create_access_token(*, user_id: uuid.UUID, channel: str) -> str:
         "iat": int(now.timestamp()),
         "exp": int(exp.timestamp()),
     }
+    if username:
+        payload["username"] = username
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 

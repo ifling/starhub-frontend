@@ -12,7 +12,7 @@ export default {
           if (!res.code) return
           request('/auth/weixin/mp', { method: 'POST', data: { code: res.code } })
             .then((data) => {
-              if (data && data.access_token) setToken(data.access_token)
+              if (data && data.access_token) setToken(data.access_token, data.user)
             })
             .catch((e) => {
               console.warn('WeChat silent login failed', e)
@@ -29,7 +29,7 @@ export default {
           if (!res.code) return
           request('/auth/qq/mp', { method: 'POST', data: { code: res.code } })
             .then((data) => {
-              if (data && data.access_token) setToken(data.access_token)
+              if (data && data.access_token) setToken(data.access_token, data.user)
             })
             .catch((e) => {
               console.warn('QQ silent login failed', e)
