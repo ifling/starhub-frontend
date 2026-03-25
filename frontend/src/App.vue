@@ -56,4 +56,17 @@ view,
 text {
   box-sizing: border-box;
 }
+
+/* Hide browser scrollbars on H5 (does not block scrolling) */
+html,
+body {
+  scrollbar-width: none; /* Firefox */
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+  width: 0;
+  height: 0;
+}
 </style>

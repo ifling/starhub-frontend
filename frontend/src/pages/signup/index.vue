@@ -38,24 +38,345 @@
 
     <view class="action-buttons">
       <button
-        v-for="tab in tabs"
-        :key="tab.key"
+        v-for="btn in headerButtons"
+        :key="btn.key"
         class="action-btn"
-        :class="{ 'action-btn--active': activeTab === tab.key }"
-        @click="activeTab = tab.key"
+        @click="onHeaderButtonClick(btn.key)"
       >
-        {{ tab.label }}
+        {{ btn.label }}
       </button>
     </view>
 
     <view class="content">
       <view v-if="loading" class="placeholder">加载中...</view>
-      <view v-else-if="activeTab === 'intro'" class="placeholder">
-        {{ activity.desc || '暂无简介。' }}
+      <view v-else class="signup-list-wrap">
+        <scroll-view scroll-y class="signup-left-summary" :show-scrollbar="false">
+          <view
+            class="signup-left-item signup-left-item--active"
+            @click="scrollToGroup('my')"
+            :style="{ color: '#16a34a' }"
+          >
+            <text class="signup-left-item-dot signup-left-item-dot--my"></text>
+            我的报名（{{ mySignups.length }}）
+          </view>
+
+          <view
+            v-for="g in signupClassGroups"
+            :key="g.classLabel"
+            class="signup-left-item"
+            @click="scrollToGroup(g.classLabel)"
+            :style="{ color: getClassColorByLabel(g.classLabel) }"
+          >
+            <text
+              class="signup-left-item-dot"
+              :style="{ background: getClassColorByLabel(g.classLabel) }"
+            ></text>
+            {{ g.classLabel }}（{{ g.signups.length }}）
+          </view>
+
+          <view v-if="!signupClassGroups.length" class="signup-left-empty">
+            暂无其他报名
+          </view>
+        </scroll-view>
+
+        <scroll-view
+          scroll-y
+          class="signup-groups"
+          :scroll-top="scrollTop"
+          @scroll="onSignupScroll"
+          ref="signupScroll"
+          :show-scrollbar="false"
+        >
+          <view
+            class="signup-group-section"
+          >
+            <view
+              class="signup-group-title"
+              :id="getGroupSectionId('my')"
+            >
+              我的报名（{{ mySignups.length }}）
+            </view>
+            <view v-if="mySignups.length" class="signup-card-list">
+              <view
+                v-for="s in mySignups"
+                :key="s.id"
+                class="signup-person-card"
+              >
+                <view
+                  class="signup-avatar"
+                  :style="{ background: getClassColorByLabel(getSignupClassLabel(s)) }"
+                >
+                  <text class="signup-avatar-text">
+                    {{ (s.nickname || '').slice(0, 1) || '•' }}
+                  </text>
+                </view>
+                <view class="signup-person-main">
+                  <view class="signup-person-name-row">
+                    <text class="signup-person-name">{{ s.nickname || '-' }}</text>
+                  </view>
+                  <view class="signup-person-meta-row">
+                    <view class="signup-meta-badge">
+                      {{ getSignupRoleText(s) }}
+                    </view>
+                    <text class="signup-person-time">{{ formatSignupTime(s.created_at) }}</text>
+                  </view>
+                </view>
+                <button
+                  v-if="isMySignup(s)"
+                  class="signup-person-more"
+                  @click="onSignupMore(s)"
+                >
+                  ...
+                </button>
+              </view>
+            </view>
+            <view v-else class="signup-group-empty">暂无报名</view>
+          </view>
+
+          <view
+            v-for="g in signupClassGroups"
+            :key="g.classLabel"
+            class="signup-group-section"
+          >
+            <view
+              class="signup-group-title"
+              :id="getGroupSectionId(g.classLabel)"
+            >
+              {{ g.classLabel }}（{{ g.signups.length }}）
+            </view>
+            <view v-if="g.signups.length" class="signup-card-list">
+              <view
+                v-for="s in g.signups"
+                :key="s.id"
+                class="signup-person-card"
+              >
+                <view
+                  class="signup-avatar"
+                  :style="{ background: getClassColorByLabel(g.classLabel) }"
+                >
+                  <text class="signup-avatar-text">
+                    {{ (s.nickname || '').slice(0, 1) || '•' }}
+                  </text>
+                </view>
+                <view class="signup-person-main">
+                  <view class="signup-person-name-row">
+                    <text class="signup-person-name">{{ s.nickname || '-' }}</text>
+                  </view>
+                  <view class="signup-person-meta-row">
+                    <view class="signup-meta-badge">{{ getSignupRoleText(s) }}</view>
+                    <text class="signup-person-time">{{ formatSignupTime(s.created_at) }}</text>
+                  </view>
+                </view>
+                <button
+                  v-if="isMySignup(s)"
+                  class="signup-person-more"
+                  @click="onSignupMore(s)"
+                >
+                  ...
+                </button>
+              </view>
+            </view>
+          </view>
+        </scroll-view>
       </view>
-      <view v-else-if="activeTab === 'limit'" class="placeholder">限制信息暂未接入。</view>
-      <view v-else-if="activeTab === 'log'" class="placeholder">日志暂未接入。</view>
-      <view v-else class="placeholder">尚无玩家报名。</view>
+    </view>
+
+    <view v-if="showInfoModal" class="modal-mask" @click="closeInfoModal">
+      <view class="info-modal" @click.stop>
+        <view class="signup-modal-header">
+          <view class="signup-modal-title">{{ infoModalTitle }}</view>
+          <view class="signup-modal-close" @click="closeInfoModal">×</view>
+        </view>
+        <view class="info-body">
+          <view v-if="infoModalKey === 'intro'">{{ activity.desc || '暂无简介。' }}</view>
+          <view v-else-if="infoModalKey === 'limit'">限制信息暂未接入。</view>
+          <view v-else-if="infoModalKey === 'log'">日志暂未接入。</view>
+        </view>
+        <view class="signup-modal-footer">
+          <button class="footer-btn footer-btn--ghost" @click="closeInfoModal">关闭</button>
+        </view>
+      </view>
+    </view>
+
+    <view v-if="showSignupModal" class="modal-mask" @click="closeSignupModal">
+      <view class="signup-modal" @click.stop>
+        <view class="signup-modal-header">
+          <view class="signup-modal-title">报名</view>
+          <view class="signup-modal-close" @click="closeSignupModal">×</view>
+        </view>
+
+        <view class="signup-segment">
+          <view class="signup-segment-item signup-segment-item--active">
+            简易
+          </view>
+          <view class="signup-segment-item">自定义角色</view>
+          <view class="signup-segment-item">批量报名</view>
+        </view>
+
+        <view class="signup-form">
+          <view class="form-row form-row--inline">
+            <view class="form-label form-label--inline">游戏ID*</view>
+            <input
+              class="form-input"
+              v-model.trim="signupForm.gameId"
+              placeholder="必填，请输入游戏ID"
+            />
+          </view>
+
+          <view
+            class="form-row form-row--inline form-row--clickable"
+            @click="openMainRolePicker"
+          >
+            <view class="form-label form-label--inline">职业-专精</view>
+            <view class="form-right">
+              <text class="form-value">{{ signupForm.mainRole || '请选择' }}</text>
+              <text class="form-arrow">›</text>
+            </view>
+          </view>
+
+          <view class="form-row form-row--textarea-inline">
+            <view class="form-label form-label--textarea-inline">备注</view>
+            <input
+              class="form-input form-input--note"
+              v-model.trim="signupForm.note"
+              maxlength="100"
+              placeholder="选填，限100字"
+            />
+          </view>
+        </view>
+
+        <view class="signup-modal-footer">
+          <button class="footer-btn footer-btn--ghost" @click="closeSignupModal">
+            取消
+          </button>
+          <button class="footer-btn footer-btn--primary" type="primary" @click="submitSignup">
+            确定
+          </button>
+        </view>
+      </view>
+    </view>
+
+    <view v-if="showRolePicker" class="picker-pop" @click.self="closeRolePicker">
+      <view class="picker-card">
+        <view class="picker-header">
+          <view class="picker-title">职业-专精</view>
+          <view class="picker-close" @click="closeRolePicker">×</view>
+        </view>
+        <scroll-view scroll-y class="picker-list">
+          <view class="role-grid">
+            <view
+              v-for="cls in roleClassOptions"
+              :key="cls"
+              class="picker-item"
+              @click="selectRoleClass(cls)"
+            >
+              <view
+                class="role-option"
+                :style="{
+                  borderColor: roleClassColorMap[cls] || 'rgba(148, 163, 184, 1)',
+                }"
+              >
+                <view
+                  class="role-icon"
+                  :class="`role-icon--${cls}`"
+                  :style="{ backgroundColor: roleClassColorMap[cls] || '#0b3a67' }"
+                ></view>
+                <text
+                  class="role-label"
+                  :style="{ color: roleClassColorMap[cls] || '#0b3a67' }"
+                >
+                  {{ roleClassLabels[cls] }}
+                </text>
+              </view>
+            </view>
+          </view>
+
+          <view class="role-grid role-grid--spec">
+            <view
+              v-for="spec in roleSpecsByClass[selectedRoleClass] || []"
+              :key="spec"
+              class="picker-item"
+              @click="selectRoleSpec(spec)"
+            >
+              <view
+                class="role-option"
+                :style="{
+                  borderColor: roleClassColorMap[selectedRoleClass] || 'rgba(148, 163, 184, 1)',
+                }"
+              >
+                <view
+                  class="role-icon"
+                  :class="`role-icon--${selectedRoleClass}`"
+                  :style="{ backgroundColor: roleClassColorMap[selectedRoleClass] || '#0b3a67' }"
+                ></view>
+                <text
+                  class="role-label"
+                  :style="{ color: roleClassColorMap[selectedRoleClass] || '#0b3a67' }"
+                >
+                  {{ spec }}
+                </text>
+              </view>
+            </view>
+          </view>
+        </scroll-view>
+      </view>
+    </view>
+
+    <!-- 三点按钮功能菜单 -->
+    <view
+      v-if="showSignupActionsMenu"
+      class="modal-mask actions-menu-mask"
+      @click="closeSignupActionsMenu"
+    >
+      <view class="actions-menu" @click.stop>
+        <view class="actions-menu-item" @click="onSignupEditNote">
+          修改备注
+        </view>
+        <view class="actions-menu-item" @click="onSignupLeave">
+          请假
+        </view>
+        <view class="actions-menu-item actions-menu-item--danger" @click="onSignupCancel">
+          取消报名
+        </view>
+        <view class="actions-menu-item actions-menu-item--close" @click="closeSignupActionsMenu">
+          关闭
+        </view>
+      </view>
+    </view>
+
+    <!-- 修改备注弹窗 -->
+    <view
+      v-if="showEditNoteModal"
+      class="modal-mask actions-menu-mask"
+      @click="closeEditNoteModal"
+    >
+      <view class="edit-note-modal" @click.stop>
+        <view class="signup-modal-header">
+          <view class="signup-modal-title">修改备注</view>
+          <view class="signup-modal-close" @click="closeEditNoteModal">×</view>
+        </view>
+        <view class="edit-note-body">
+          <view class="edit-note-label">备注</view>
+          <input
+            class="form-input"
+            v-model.trim="editNoteDraft"
+            maxlength="100"
+            placeholder="选填，限100字"
+          />
+        </view>
+        <view class="signup-modal-footer">
+          <button class="footer-btn footer-btn--ghost" @click="closeEditNoteModal">
+            取消
+          </button>
+          <button
+            class="footer-btn footer-btn--primary"
+            type="primary"
+            @click="onConfirmEditNote"
+          >
+            保存
+          </button>
+        </view>
+      </view>
     </view>
   </view>
 </template>
@@ -69,8 +390,7 @@ export default {
     return {
       activityId: '',
       loading: false,
-      activeTab: 'signup',
-      tabs: [
+      headerButtons: [
         { key: 'intro', label: '简介' },
         { key: 'limit', label: '限制' },
         { key: 'log', label: '日志' },
@@ -83,13 +403,311 @@ export default {
         desc: '',
       },
       signupCount: 0,
+      signups: [],
+      myGameId: '',
+      mySignupIds: [],
+      scrollTop: 0,
+      showSignupActionsMenu: false,
+      currentSignupForMenu: null,
+      showEditNoteModal: false,
+      editNoteDraft: '',
+      showInfoModal: false,
+      infoModalKey: 'intro',
+      showSignupModal: false,
+      showRolePicker: false,
+      roleClassOptions: ['juren', 'shendun', 'leiying', 'qinglan', 'bingmo', 'shensheshou', 'senyuzhe', 'linghun'],
+      roleClassLabels: {
+        shendun: '神盾骑士',
+        juren: '巨人守护者',
+        leiying: '雷影剑士',
+        qinglan: '青岚骑士',
+        bingmo: '冰魔导师',
+        shensheshou: '神射手',
+        senyuzhe: '森语者',
+        linghun: '灵魂乐手',
+      },
+      roleClassColorMap: {
+        senyuzhe: '#32BF0F',
+        bingmo: '#5C82E1',
+        leiying: '#6B39DE',
+        qinglan: '#11B5B2',
+        juren: '#08A0DC',
+        shensheshou: '#D4D116',
+        shendun: '#0F68B3',
+        linghun: '#1F9F0E',
+      },
+      selectedRoleClass: 'juren',
+      roleSpecsByClass: {
+        senyuzhe: ['惩击', '愈合'],
+        bingmo: ['冰矛', '射线'],
+        leiying: ['居合', '月刃'],
+        qinglan: ['重装', '空战'],
+        juren: ['岩盾', '格挡'],
+        shensheshou: ['驭兽', '驯鹰'],
+        shendun: ['防护', '光盾'],
+        linghun: ['狂音', '协奏'],
+      },
+      signupForm: {
+        gameId: '',
+        mainRole: '',
+        note: '',
+      },
     }
   },
   onLoad(query) {
     this.activityId = query && query.activityId ? String(query.activityId) : ''
+    try {
+      this.myGameId = uni.getStorageSync('starhub_my_game_id') || ''
+      const rawIds = uni.getStorageSync('starhub_my_signup_ids')
+      this.mySignupIds = rawIds ? JSON.parse(rawIds) : []
+    } catch {
+      this.myGameId = ''
+      this.mySignupIds = []
+    }
     this.reload()
   },
   methods: {
+    getSignupClassLabel(s) {
+      const note = s && s.note ? String(s.note) : ''
+      const m =
+        note.match(/专精[:：]\s*([^；;]+)/) ||
+        note.match(/主专精[:：]\s*([^；;]+)/) ||
+        note.match(/职业[:：]\s*([^；;]+)/)
+      const v = m && m[1] ? String(m[1]) : ''
+      if (!v) {
+        if (s && s.role) return this.roleToApiRoleText(s.role)
+        return '未分类'
+      }
+      const parts = v.split('-')
+      return parts[0] || v
+    },
+    roleToApiRoleText(role) {
+      if (!role) return '未分类'
+      if (role === 'tank') return '坦克'
+      if (role === 'healer') return '治疗'
+      if (role === 'dps') return '输出'
+      return String(role)
+    },
+    getSignupRoleText(s) {
+      const label = this.getSignupClassLabel(s)
+      // 展示“专精”末尾（岩盾/格挡/狂暴...），如果能解析到专精就取第二段
+      const note = s && s.note ? String(s.note) : ''
+      const m = note.match(/专精[:：]\s*([^；;]+)/) || note.match(/主专精[:：]\s*([^；;]+)/)
+      if (m && m[1]) {
+        const parts = String(m[1]).split('-')
+        if (parts.length >= 2) return parts[1]
+      }
+      return label
+    },
+    formatSignupTime(iso) {
+      if (!iso) return '--'
+      const dt = new Date(iso)
+      if (Number.isNaN(dt.getTime())) return '--'
+      const mm = String(dt.getMonth() + 1).padStart(2, '0')
+      const dd = String(dt.getDate()).padStart(2, '0')
+      const hh = String(dt.getHours()).padStart(2, '0')
+      const mi = String(dt.getMinutes()).padStart(2, '0')
+      return `${mm}-${dd} ${hh}:${mi}`
+    },
+    getClassColorByLabel(label) {
+      // roleClassColorMap 是 key->color；这里把 classLabel 映射到 key 再取颜色
+      const inv = {
+        森语者: this.roleClassColorMap && this.roleClassColorMap.senyuzhe,
+        冰魔导师: this.roleClassColorMap && this.roleClassColorMap.bingmo,
+        雷影剑士: this.roleClassColorMap && this.roleClassColorMap.leiying,
+        青岚骑士: this.roleClassColorMap && this.roleClassColorMap.qinglan,
+        巨人守护者: this.roleClassColorMap && this.roleClassColorMap.juren,
+        神射手: this.roleClassColorMap && this.roleClassColorMap.shensheshou,
+        神盾骑士: this.roleClassColorMap && this.roleClassColorMap.shendun,
+        灵魂乐手: this.roleClassColorMap && this.roleClassColorMap.linghun,
+      }
+      return (inv && inv[label]) || '#94a3b8'
+    },
+    sanitizeGroupId(label) {
+      const s = String(label || '')
+      // scroll-into-view 的匹配在不同运行时对 id 兼容性不一致，
+      // 这里把 label 做成纯 ASCII，避免中文/特殊字符导致匹配失败。
+      return encodeURIComponent(s).replace(/%/g, '_')
+    },
+    getGroupSectionId(label) {
+      if (label === 'my') return 'group_my'
+      return `group_${this.sanitizeGroupId(label)}`
+    },
+    scrollToGroup(label) {
+      const id = this.getGroupSectionId(label)
+      // H5: use native scrollIntoView for stable behavior inside scroll containers.
+      // #ifdef H5
+      setTimeout(() => {
+        try {
+          const el = document.getElementById(id)
+          const container = this.$refs.signupScroll
+          if (el && container) {
+            // Try direct scrollTop update inside the scroll container.
+            const containerEl = container.getBoundingClientRect ? container : null
+            if (containerEl && el.getBoundingClientRect) {
+              const cRect = containerEl.getBoundingClientRect()
+              const tRect = el.getBoundingClientRect()
+              const delta = (tRect.top || 0) - (cRect.top || 0)
+              const next = (containerEl.scrollTop || 0) + delta
+              containerEl.scrollTop = next
+              this.scrollTop = next
+              return
+            }
+          }
+          if (el && el.scrollIntoView) {
+            el.scrollIntoView({ behavior: 'auto', block: 'start' })
+          }
+        } catch {}
+      }, 30)
+      return
+      // #endif
+
+      // Fallback (非 H5): keep the old scrollTop calculation.
+      setTimeout(() => {
+        const targetSelector = `#${id}`
+        let targetRect = null
+        let containerRect = null
+        const query = uni.createSelectorQuery()
+        query.select(targetSelector).boundingClientRect((r) => {
+          targetRect = r
+        })
+        query.select('.signup-groups').boundingClientRect((r) => {
+          containerRect = r
+        })
+        query.exec(() => {
+          if (!targetRect || !containerRect) return
+          const old = Number(this.scrollTop) || 0
+          const delta = (targetRect.top || 0) - (containerRect.top || 0)
+          this.scrollTop = old + delta
+        })
+      }, 30)
+    },
+    onSignupScroll(e) {
+      const v = e && e.detail ? e.detail.scrollTop : 0
+      if (typeof v === 'number') this.scrollTop = v
+    },
+    isMySignup(s) {
+      if (!s) return false
+      const id = s && s.id != null ? String(s.id) : ''
+      if (id && Array.isArray(this.mySignupIds) && this.mySignupIds.includes(id)) return true
+      // fallback: nickname match
+      if (!this.myGameId) return false
+      const n = s && s.nickname != null ? String(s.nickname) : ''
+      return String(n) === String(this.myGameId)
+    },
+    onSignupMore(signup) {
+      this.currentSignupForMenu = signup || null
+      this.showEditNoteModal = false
+      this.showSignupActionsMenu = true
+    },
+    closeSignupActionsMenu() {
+      this.showSignupActionsMenu = false
+      this.currentSignupForMenu = null
+    },
+    closeEditNoteModal() {
+      this.showEditNoteModal = false
+    },
+    extractRemarkFromNote(note) {
+      const raw = note == null ? '' : String(note)
+      const m = raw.match(/备注[:：]\s*([^；;]*)/)
+      if (m && m[1] != null) return String(m[1]).trim()
+      return ''
+    },
+    updateNoteRemark(note, remark) {
+      const raw = note == null ? '' : String(note)
+      const rem = (remark == null ? '' : String(remark)).trim()
+      const parts = raw.split('；').map((p) => p.trim()).filter(Boolean)
+      const next = []
+      for (const p of parts) {
+        if (/^备注[:：]/.test(p)) continue
+        next.push(p)
+      }
+      if (rem) next.push(`备注: ${rem}`)
+      return next.join('；')
+    },
+    async recreateSignupWithNote(signup, updatedNote) {
+      if (!signup || !signup.id) return
+      const oldId = String(signup.id)
+      await request(`/activities/${this.activityId}/signups/${signup.id}`, { method: 'DELETE' })
+      const created = await request(`/activities/${this.activityId}/signups`, {
+        method: 'POST',
+        data: {
+          nickname: signup.nickname,
+          role: signup.role,
+          note: updatedNote,
+        },
+      })
+      // update local "mine" ids
+      try {
+        const next = Array.isArray(this.mySignupIds) ? this.mySignupIds.slice() : []
+        const createdId = created && created.id != null ? String(created.id) : ''
+        const filtered = next.filter((x) => String(x) !== oldId)
+        if (createdId && !filtered.includes(createdId)) filtered.push(createdId)
+        this.mySignupIds = filtered
+        uni.setStorageSync('starhub_my_signup_ids', JSON.stringify(this.mySignupIds))
+      } catch {}
+      return created
+    },
+    async onSignupEditNote() {
+      if (!this.currentSignupForMenu) return
+      this.showSignupActionsMenu = false
+      this.editNoteDraft = this.extractRemarkFromNote(this.currentSignupForMenu.note)
+      this.showEditNoteModal = true
+    },
+    async onSignupLeave() {
+      if (!this.currentSignupForMenu) return
+      const signup = this.currentSignupForMenu
+      const currentRemark = this.extractRemarkFromNote(signup.note)
+      const nextRemark = currentRemark ? `${currentRemark}；请假` : '请假'
+      const updatedNote = this.updateNoteRemark(signup.note, nextRemark)
+      uni.showLoading({ title: '更新中' })
+      try {
+        await this.recreateSignupWithNote(signup, updatedNote)
+        uni.showToast({ title: '已设置请假', icon: 'none' })
+        this.closeSignupActionsMenu()
+        await this.reload()
+      } catch (e) {
+        uni.showToast({ title: '更新失败', icon: 'none' })
+      } finally {
+        uni.hideLoading()
+      }
+    },
+    async onSignupCancel() {
+      if (!this.currentSignupForMenu) return
+      const signup = this.currentSignupForMenu
+      uni.showLoading({ title: '取消报名中' })
+      try {
+        const oldId = signup && signup.id != null ? String(signup.id) : ''
+        await request(`/activities/${this.activityId}/signups/${signup.id}`, { method: 'DELETE' })
+        if (oldId && Array.isArray(this.mySignupIds)) {
+          this.mySignupIds = this.mySignupIds.filter((x) => String(x) !== oldId)
+          uni.setStorageSync('starhub_my_signup_ids', JSON.stringify(this.mySignupIds))
+        }
+        uni.showToast({ title: '已取消报名', icon: 'none' })
+        this.closeSignupActionsMenu()
+        await this.reload()
+      } catch (e) {
+        uni.showToast({ title: '取消失败', icon: 'none' })
+      } finally {
+        uni.hideLoading()
+      }
+    },
+    async onConfirmEditNote() {
+      if (!this.currentSignupForMenu) return
+      const signup = this.currentSignupForMenu
+      const updatedNote = this.updateNoteRemark(signup.note, this.editNoteDraft)
+      uni.showLoading({ title: '保存中' })
+      try {
+        await this.recreateSignupWithNote(signup, updatedNote)
+        uni.showToast({ title: '备注已更新', icon: 'none' })
+        this.showEditNoteModal = false
+        await this.reload()
+      } catch (e) {
+        uni.showToast({ title: '保存失败', icon: 'none' })
+      } finally {
+        uni.hideLoading()
+      }
+    },
     async reload() {
       if (!this.activityId) {
         uni.showToast({ title: '缺少活动ID', icon: 'none' })
@@ -100,7 +718,8 @@ export default {
         const data = await request(`/activities/${this.activityId}`)
         this.activity = data || {}
         const signups = await request(`/activities/${this.activityId}/signups`)
-        this.signupCount = Array.isArray(signups) ? signups.length : 0
+        this.signups = Array.isArray(signups) ? signups : []
+        this.signupCount = this.signups.length
       } catch (e) {
         uni.showToast({ title: '加载失败', icon: 'none' })
       } finally {
@@ -118,6 +737,146 @@ export default {
       const mm = String(dt.getMinutes()).padStart(2, '0')
       const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
       return `${y}-${m}-${d} ${hh}:${mm} ${weekdays[dt.getDay()]}`
+    },
+    onHeaderButtonClick(key) {
+      if (key === 'signup') {
+        this.openSignupModal()
+        return
+      }
+      this.openInfoModal(key)
+    },
+    openInfoModal(key) {
+      this.infoModalKey = key
+      this.showInfoModal = true
+      this.showSignupModal = false
+      this.showRolePicker = false
+    },
+    closeInfoModal() {
+      this.showInfoModal = false
+    },
+    openSignupModal() {
+      // reset every open
+      this.signupForm = {
+        gameId: '',
+        mainRole: '',
+        note: '',
+      }
+      this.showRolePicker = false
+      this.showSignupModal = true
+    },
+    closeSignupModal() {
+      this.showSignupModal = false
+      this.showRolePicker = false
+    },
+    openMainRolePicker() {
+      this.selectedRoleClass = this.roleClassOptions[0]
+      this.showRolePicker = true
+    },
+    closeRolePicker() {
+      this.showRolePicker = false
+    },
+    selectRoleClass(cls) {
+      this.selectedRoleClass = cls
+    },
+
+    selectRoleSpec(spec) {
+      if (!this.selectedRoleClass) return
+      this.signupForm.mainRole = `${this.roleClassLabels[this.selectedRoleClass] || this.selectedRoleClass}-${spec}`
+      this.showRolePicker = false
+    },
+    roleToApiRole(mainRole) {
+      if (!mainRole) return 'dps'
+      const s = String(mainRole)
+      if (s.includes('愈合') || s.includes('光盾') || s.includes('协奏') || s.includes('恢复')) return 'healer'
+      if (s.includes('防护') || s.includes('岩盾') || s.includes('格挡') || s.includes('重装')) return 'tank'
+      return 'dps'
+    },
+    buildNote() {
+      const parts = []
+      if (this.signupForm.mainRole) parts.push(`专精: ${this.signupForm.mainRole}`)
+      if (this.signupForm.note) parts.push(`备注: ${this.signupForm.note}`)
+      const note = parts.join('；')
+      if (!note) return null
+      return note.length > 200 ? note.slice(0, 200) : note
+    },
+    async submitSignup() {
+      const gameId = (this.signupForm.gameId || '').trim()
+      if (!gameId) {
+        uni.showToast({ title: '请输入游戏ID', icon: 'none' })
+        return
+      }
+      if (!this.signupForm.mainRole) {
+        uni.showToast({ title: '请选择职业-专精', icon: 'none' })
+        return
+      }
+      if (!this.activityId) return
+
+      const payload = {
+        nickname: gameId,
+        role: this.roleToApiRole(this.signupForm.mainRole),
+        note: this.buildNote(),
+      }
+
+      uni.showLoading({ title: '提交中' })
+      try {
+        const created = await request(`/activities/${this.activityId}/signups`, { method: 'POST', data: payload })
+        uni.showToast({ title: '报名成功', icon: 'none' })
+        try {
+          uni.setStorageSync('starhub_my_game_id', gameId)
+        } catch {}
+        this.myGameId = gameId
+        // record "mine" by signup id (supports multi-role signup)
+        try {
+          const createdId =
+            created && created.id != null ? String(created.id) : ''
+          if (createdId) {
+            if (!Array.isArray(this.mySignupIds)) this.mySignupIds = []
+            if (!this.mySignupIds.includes(createdId)) this.mySignupIds.push(createdId)
+            uni.setStorageSync('starhub_my_signup_ids', JSON.stringify(this.mySignupIds))
+          }
+        } catch {}
+        this.showSignupModal = false
+        // refresh list
+        await this.reload()
+      } catch (e) {
+        uni.showToast({ title: '报名失败', icon: 'none' })
+      } finally {
+        uni.hideLoading()
+      }
+    },
+  },
+  computed: {
+    mySignups() {
+      if (Array.isArray(this.mySignupIds) && this.mySignupIds.length) {
+        return (this.signups || []).filter((s) => {
+          const id = s && s.id != null ? String(s.id) : ''
+          return id && this.mySignupIds.includes(id)
+        })
+      }
+      if (!this.myGameId) return []
+      return (this.signups || []).filter(
+        (s) => String(s.nickname || '') === String(this.myGameId),
+      )
+    },
+    signupClassGroups() {
+      const list = this.signups || []
+      const map = {}
+      for (const s of list) {
+        const cls = this.getSignupClassLabel(s)
+        if (!map[cls]) map[cls] = []
+        map[cls].push(s)
+      }
+      const groups = Object.keys(map).map((k) => ({ classLabel: k, signups: map[k] }))
+      // exclude my signups already shown in left list? Keep them in class group too.
+      // screenshot shows separated "我的报名" and also appears again in class group; we follow that behavior.
+      groups.sort((a, b) => (b.signups?.length || 0) - (a.signups?.length || 0))
+      return groups
+    },
+    infoModalTitle() {
+      if (this.infoModalKey === 'intro') return '简介'
+      if (this.infoModalKey === 'limit') return '限制'
+      if (this.infoModalKey === 'log') return '日志'
+      return '信息'
     },
   },
 }
@@ -314,5 +1073,608 @@ export default {
   color: #9ca3af;
   font-size: 34rpx;
   padding-top: 80rpx;
+}
+
+.signup-list-wrap {
+  display: flex;
+  flex-direction: row;
+  gap: 18rpx;
+  padding: 24rpx 18rpx;
+}
+
+.signup-left-summary {
+  width: 240rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
+  height: 800rpx;
+  background: transparent;
+}
+
+.signup-left-item {
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 18rpx 16rpx;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12rpx;
+  color: rgba(17, 24, 39, 0.55);
+  font-size: 28rpx;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.signup-left-item:active {
+  opacity: 0.9;
+}
+
+.signup-left-item--active {
+  color: #111827;
+  font-weight: 700;
+  border: 2rpx solid rgba(16, 185, 129, 0.25);
+}
+
+.signup-left-item-dot {
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 999rpx;
+  background: rgba(16, 185, 129, 0.9);
+  flex-shrink: 0;
+}
+
+.signup-left-item-dot--my {
+  background: #16a34a;
+}
+
+.signup-left-empty {
+  padding: 18rpx 16rpx;
+  color: rgba(17, 24, 39, 0.35);
+  font-size: 26rpx;
+  text-align: center;
+  background: #ffffff;
+  border-radius: 16rpx;
+}
+
+.signup-groups {
+  flex: 1;
+  height: 800rpx;
+}
+
+.signup-left-summary,
+.signup-groups {
+  scrollbar-width: none; /* Firefox */
+}
+
+.signup-left-summary::-webkit-scrollbar,
+.signup-groups::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+  width: 0;
+  height: 0;
+}
+
+.signup-group-section {
+  margin-bottom: 18rpx;
+}
+
+.signup-group-title {
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 18rpx 18rpx;
+  color: #111827;
+  font-size: 30rpx;
+  font-weight: 700;
+  margin-bottom: 12rpx;
+}
+
+.signup-group-empty {
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 24rpx 18rpx;
+  color: rgba(17, 24, 39, 0.45);
+  font-size: 28rpx;
+  text-align: center;
+}
+
+.signup-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
+}
+
+.signup-person-card {
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 18rpx 16rpx;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 14rpx;
+}
+
+.signup-avatar {
+  width: 66rpx;
+  height: 66rpx;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.signup-avatar-text {
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 26rpx;
+}
+
+.signup-person-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.signup-person-name {
+  font-size: 28rpx;
+  font-weight: 800;
+  color: #111827;
+}
+
+.signup-person-meta-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.signup-meta-badge {
+  font-size: 22rpx;
+  color: rgba(17, 24, 39, 0.55);
+  background: rgba(229, 231, 235, 0.7);
+  padding: 6rpx 12rpx;
+  border-radius: 999rpx;
+}
+
+.signup-person-time {
+  font-size: 22rpx;
+  color: rgba(17, 24, 39, 0.45);
+}
+
+.signup-person-more {
+  width: 72rpx;
+  height: 48rpx;
+  border-radius: 14rpx;
+  background: #ffffff;
+  border: 2rpx solid rgba(148, 163, 184, 0.9);
+  color: rgba(17, 24, 39, 0.55);
+  font-size: 28rpx;
+  padding: 0;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.signup-list-placeholder {
+  padding: 60rpx 24rpx;
+  text-align: center;
+  color: rgba(17, 24, 39, 0.45);
+  font-size: 30rpx;
+}
+
+.signup-list-count {
+  display: block;
+  margin-top: 18rpx;
+  font-size: 26rpx;
+  color: rgba(17, 24, 39, 0.55);
+}
+
+.modal-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99;
+}
+
+.signup-modal {
+  width: 640rpx;
+  max-width: 90vw;
+  background: #ffffff;
+  border-radius: 18rpx;
+  overflow: hidden;
+}
+
+.signup-modal-header {
+  padding: 18rpx 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 2rpx solid rgba(0, 0, 0, 0.06);
+}
+
+.signup-modal-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #111827;
+}
+
+.signup-modal-close {
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 14rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ef4444;
+  font-size: 34rpx;
+}
+
+.info-modal {
+  width: 640rpx;
+  max-width: 90vw;
+  background: #ffffff;
+  border-radius: 18rpx;
+  overflow: hidden;
+}
+
+.info-body {
+  padding: 20rpx 20rpx 0;
+  color: rgba(17, 24, 39, 0.75);
+  font-size: 26rpx;
+  line-height: 40rpx;
+  min-height: 240rpx;
+}
+
+.signup-segment {
+  display: flex;
+  padding: 16rpx 20rpx 0;
+  gap: 20rpx;
+}
+
+.signup-segment-item {
+  flex: 1;
+  text-align: center;
+  padding-bottom: 12rpx;
+  color: rgba(17, 24, 39, 0.6);
+  font-size: 28rpx;
+}
+
+.signup-segment-item--active {
+  color: #111827;
+  font-weight: 700;
+  border-bottom: 6rpx solid #1d4ed8;
+}
+
+.signup-form {
+  padding: 10rpx 20rpx 0;
+}
+
+.form-row {
+  padding: 18rpx 0;
+  border-bottom: 2rpx solid rgba(0, 0, 0, 0.06);
+}
+
+.form-row--clickable {
+  cursor: pointer;
+}
+
+.form-row--inline {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14rpx;
+}
+
+.form-label--inline {
+  width: 160rpx;
+  margin: 0;
+  padding-top: 6rpx;
+}
+
+.form-label {
+  font-size: 26rpx;
+  color: rgba(17, 24, 39, 0.9);
+  margin-bottom: 12rpx;
+  font-weight: 600;
+}
+
+.form-right {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10rpx;
+}
+
+.form-value {
+  font-size: 26rpx;
+  color: rgba(17, 24, 39, 0.5);
+}
+
+.form-arrow {
+  font-size: 34rpx;
+  color: rgba(17, 24, 39, 0.35);
+  transform: translateY(-2rpx);
+}
+
+.form-input {
+  height: 64rpx;
+  border-radius: 12rpx;
+  padding: 0 18rpx;
+  background: #f3f4f6;
+  font-size: 26rpx;
+}
+
+.form-textarea {
+  min-height: 120rpx;
+  border-radius: 12rpx;
+  padding: 14rpx 18rpx;
+  background: #f3f4f6;
+  font-size: 26rpx;
+}
+
+.form-input--note {
+  height: 64rpx;
+  flex: 1;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.form-row--textarea-inline {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.form-label--textarea-inline {
+  width: auto;
+  margin: 0;
+  padding-top: 6rpx;
+  white-space: nowrap;
+}
+
+.form-row--textarea-inline .form-textarea {
+  flex: 1;
+  margin: 0;
+  min-height: 96rpx;
+}
+
+.form-row--textarea-inline .form-input--note {
+  flex: 1;
+  margin: 0;
+  min-height: 64rpx;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.signup-modal-footer {
+  padding: 18rpx 20rpx 22rpx;
+  display: flex;
+  gap: 18rpx;
+  justify-content: flex-end;
+}
+
+.actions-menu-mask {
+  z-index: 120;
+}
+
+.actions-menu {
+  width: 360rpx;
+  max-width: 90vw;
+  background: #ffffff;
+  border-radius: 18rpx;
+  overflow: hidden;
+  box-shadow: 0 18rpx 40rpx rgba(0, 0, 0, 0.18);
+  padding: 10rpx 0;
+}
+
+.actions-menu-item {
+  padding: 18rpx 18rpx;
+  text-align: center;
+  font-size: 28rpx;
+  color: rgba(17, 24, 39, 0.75);
+}
+
+.actions-menu-item:active {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.actions-menu-item--danger {
+  color: #ef4444;
+}
+
+.actions-menu-item--close {
+  margin-top: 6rpx;
+  color: rgba(17, 24, 39, 0.65);
+}
+
+.edit-note-modal {
+  width: 560rpx;
+  max-width: 90vw;
+  background: #ffffff;
+  border-radius: 18rpx;
+  overflow: hidden;
+}
+
+.edit-note-body {
+  padding: 20rpx 20rpx 0;
+}
+
+.edit-note-label {
+  font-size: 26rpx;
+  color: rgba(17, 24, 39, 0.9);
+  font-weight: 600;
+  margin-bottom: 12rpx;
+}
+
+.footer-btn {
+  flex: 1;
+  height: 74rpx;
+  border-radius: 14rpx;
+  font-size: 28rpx;
+}
+
+.footer-btn--ghost {
+  background: #ffffff;
+  border: 2rpx solid rgba(148, 163, 184, 1);
+  color: #111827;
+}
+
+.footer-btn--primary {
+  background: #22c55e;
+  color: #ffffff;
+}
+
+.picker-pop {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.picker-card {
+  width: 560rpx;
+  background: #ffffff;
+  border-radius: 16rpx;
+  overflow: hidden;
+}
+
+.picker-header {
+  padding: 18rpx 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 2rpx solid rgba(0, 0, 0, 0.06);
+}
+
+.picker-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #111827;
+}
+
+.picker-close {
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 14rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ef4444;
+  font-size: 34rpx;
+}
+
+.picker-list {
+  width: 100%;
+  max-height: 62vh;
+  padding: 20rpx 16rpx 24rpx;
+}
+
+.picker-item {
+  width: 25%;
+  box-sizing: border-box;
+  padding: 0;
+}
+
+.role-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx 14rpx;
+}
+
+.role-grid--spec {
+  margin-top: 52rpx;
+}
+
+.role-option {
+  width: 100%;
+  height: 64rpx;
+  border-radius: 12rpx;
+  border: 2rpx solid rgba(148, 163, 184, 1);
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.role-icon {
+  width: 28rpx;
+  height: 28rpx;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  background-color: #0b3a67;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
+}
+
+.role-icon--shendun {
+  -webkit-mask-image: url('/static/icons/shendun.svg');
+  mask-image: url('/static/icons/shendun.svg');
+}
+
+.role-icon--juren {
+  -webkit-mask-image: url('/static/icons/juren.svg');
+  mask-image: url('/static/icons/juren.svg');
+}
+
+.role-icon--leiying {
+  -webkit-mask-image: url('/static/icons/leiying.svg');
+  mask-image: url('/static/icons/leiying.svg');
+}
+
+.role-icon--qinglan {
+  -webkit-mask-image: url('/static/icons/qinglan.svg');
+  mask-image: url('/static/icons/qinglan.svg');
+}
+
+.role-icon--bingmo {
+  -webkit-mask-image: url('/static/icons/bingmo.svg');
+  mask-image: url('/static/icons/bingmo.svg');
+}
+
+.role-icon--shensheshou {
+  -webkit-mask-image: url('/static/icons/shensheshou.svg');
+  mask-image: url('/static/icons/shensheshou.svg');
+}
+
+.role-icon--senyuzhe {
+  -webkit-mask-image: url('/static/icons/senyuzhe.svg');
+  mask-image: url('/static/icons/senyuzhe.svg');
+}
+
+.role-icon--linghun {
+  -webkit-mask-image: url('/static/icons/linghun.svg');
+  mask-image: url('/static/icons/linghun.svg');
+}
+
+.role-label {
+  font-size: 22rpx;
+  color: #0b3a67;
+  line-height: 1.1;
+  text-align: center;
+  padding: 0 6rpx;
 }
 </style>
