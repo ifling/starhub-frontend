@@ -461,6 +461,24 @@
 import { request } from '../../utils/request'
 import { isLoggedIn } from '../../utils/auth'
 
+const DEFAULT_LIMIT_FORM = () => ({
+  total: null,
+  tank: null,
+  healer: null,
+  dps: null,
+})
+
+const DEFAULT_LIMIT_CLASS_LIST = () => ([
+  { id: 'senyuzhe', name: '森语者', color: '#32BF0F', limit: null, specs: [{ name: '惩击', limit: null }, { name: '愈合', limit: null }] },
+  { id: 'bingmo', name: '冰魔导师', color: '#5C82E1', limit: null, specs: [{ name: '冰矛', limit: null }, { name: '射线', limit: null }] },
+  { id: 'leiying', name: '雷影剑士', color: '#6B39DE', limit: null, specs: [{ name: '居合', limit: null }, { name: '月刃', limit: null }] },
+  { id: 'qinglan', name: '青岚骑士', color: '#11B5B2', limit: null, specs: [{ name: '重装', limit: null }, { name: '空战', limit: null }] },
+  { id: 'juren', name: '巨人守护者', color: '#08A0DC', limit: null, specs: [{ name: '岩盾', limit: null }, { name: '格挡', limit: null }] },
+  { id: 'shensheshou', name: '神射手', color: '#D4D116', limit: null, specs: [{ name: '驭兽', limit: null }, { name: '驯鹰', limit: null }] },
+  { id: 'shendun', name: '神盾骑士', color: '#0F68B3', limit: null, specs: [{ name: '防护', limit: null }, { name: '光盾', limit: null }] },
+  { id: 'linghun', name: '灵魂乐手', color: '#1F9F0E', limit: null, specs: [{ name: '狂音', limit: null }, { name: '协奏', limit: null }] },
+])
+
 export default {
   name: 'StonePage',
   data() {
@@ -506,22 +524,8 @@ export default {
       timePickerHours: [],
       timePickerMinutes: [],
       timePickerIndex: [19, 30],
-      limitForm: {
-        total: null,
-        tank: null,
-        healer: null,
-        dps: null,
-      },
-      limitClassList: [
-        { id: 'senyuzhe', name: '森语者', color: '#32BF0F', limit: null, specs: [{ name: '惩击', limit: null }, { name: '愈合', limit: null }] },
-        { id: 'bingmo', name: '冰魔导师', color: '#5C82E1', limit: null, specs: [{ name: '冰矛', limit: null }, { name: '射线', limit: null }] },
-        { id: 'leiying', name: '雷影剑士', color: '#6B39DE', limit: null, specs: [{ name: '居合', limit: null }, { name: '月刃', limit: null }] },
-        { id: 'qinglan', name: '青岚骑士', color: '#11B5B2', limit: null, specs: [{ name: '重装', limit: null }, { name: '空战', limit: null }] },
-        { id: 'juren', name: '巨人守护者', color: '#08A0DC', limit: null, specs: [{ name: '岩盾', limit: null }, { name: '格挡', limit: null }] },
-        { id: 'shensheshou', name: '神射手', color: '#D4D116', limit: null, specs: [{ name: '驭兽', limit: null }, { name: '驯鹰', limit: null }] },
-        { id: 'shendun', name: '神盾骑士', color: '#0F68B3', limit: null, specs: [{ name: '防护', limit: null }, { name: '光盾', limit: null }] },
-        { id: 'linghun', name: '灵魂乐手', color: '#1F9F0E', limit: null, specs: [{ name: '狂音', limit: null }, { name: '协奏', limit: null }] },
-      ],
+      limitForm: DEFAULT_LIMIT_FORM(),
+      limitClassList: DEFAULT_LIMIT_CLASS_LIST(),
       showLimitPicker: false,
       limitPickerTarget: null,
       limitPickerIndex: 1,
@@ -593,6 +597,49 @@ export default {
     }
   },
   methods: {
+    resetLimitsToDefault() {
+      this.limitForm = DEFAULT_LIMIT_FORM()
+      this.limitClassList = DEFAULT_LIMIT_CLASS_LIST()
+    },
+    applyLimitsFromActivity(act) {
+      const l = act && act.limits ? act.limits : null
+      if (!l) {
+        this.resetLimitsToDefault()
+        return
+      }
+      this.limitForm = {
+        total: l.total ?? null,
+        tank: l.tank ?? null,
+        healer: l.healer ?? null,
+        dps: l.dps ?? null,
+      }
+      const byId = new Map()
+      for (const c of DEFAULT_LIMIT_CLASS_LIST()) byId.set(c.id, c)
+      const incoming = Array.isArray(l.classes) ? l.classes : []
+      const next = []
+      for (const c of incoming) {
+        if (!c || !c.id) continue
+        const base = byId.get(c.id) || { id: c.id, name: c.name || c.id, color: c.color, limit: null, specs: [] }
+        const specs = Array.isArray(c.specs) ? c.specs : []
+        const baseSpecs = Array.isArray(base.specs) ? base.specs : []
+        next.push({
+          id: base.id,
+          name: base.name,
+          color: base.color,
+          limit: c.limit ?? null,
+          specs: [
+            { name: (specs[0] && specs[0].name) || (baseSpecs[0] && baseSpecs[0].name) || '', limit: (specs[0] && specs[0].limit) ?? (baseSpecs[0] && baseSpecs[0].limit) ?? null },
+            { name: (specs[1] && specs[1].name) || (baseSpecs[1] && baseSpecs[1].name) || '', limit: (specs[1] && specs[1].limit) ?? (baseSpecs[1] && baseSpecs[1].limit) ?? null },
+          ],
+        })
+      }
+      // if backend stored only partial classes, append missing defaults
+      const existingIds = new Set(next.map((x) => x.id))
+      for (const d of DEFAULT_LIMIT_CLASS_LIST()) {
+        if (!existingIds.has(d.id)) next.push(d)
+      }
+      this.limitClassList = next
+    },
     toast(title) {
       uni.showToast({ title, icon: 'none' })
     },
@@ -612,9 +659,11 @@ export default {
       }
       // #endif
       this.editingId = null
+      this.activeEditorTab = 'basic'
       this.form.title = ''
       this.form.type = '副本'
       this.form.desc = ''
+      this.resetLimitsToDefault()
       const now = new Date()
       const future = new Date(
         now.getFullYear(),
@@ -635,6 +684,7 @@ export default {
       this.form.title = act.title || ''
       this.form.type = act.type || '副本'
       this.form.desc = act.desc || ''
+      this.applyLimitsFromActivity(act)
       const dt = act.deadline_at ? new Date(act.deadline_at) : null
       if (dt && !Number.isNaN(dt.getTime())) {
         const y = dt.getFullYear()
@@ -726,6 +776,7 @@ export default {
         type: this.form.type || '副本',
         deadline_at: this.buildDeadlineISO(),
         desc: (this.form.desc || '').trim() || null,
+        limits: this.buildLimitsPayload(),
       }
       uni.showLoading({ title: '保存中' })
       try {
@@ -895,6 +946,24 @@ export default {
       if (val === -1) return '禁止'
       if (val === null || val === undefined) return '不限'
       return String(val)
+    },
+    buildLimitsPayload() {
+      const classes = (this.limitClassList || []).map((c) => ({
+        id: c.id,
+        name: c.name,
+        limit: c.limit == null ? null : c.limit,
+        specs: (c.specs || []).map((s) => ({
+          name: s.name,
+          limit: s.limit == null ? null : s.limit,
+        })),
+      }))
+      return {
+        total: this.limitForm ? this.limitForm.total : null,
+        tank: this.limitForm ? this.limitForm.tank : null,
+        healer: this.limitForm ? this.limitForm.healer : null,
+        dps: this.limitForm ? this.limitForm.dps : null,
+        classes,
+      }
     },
     getLimitValueIndex(val) {
       if (val === -1) return 0

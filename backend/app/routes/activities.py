@@ -31,6 +31,7 @@ def create_activity(
             type=payload.type,
             deadline_at=payload.deadline_at,
             desc=payload.desc,
+            limits=payload.limits,
         )
         db.add(act)
         try:
@@ -75,6 +76,7 @@ def list_my_activities(db: Session = Depends(get_db), user: User = Depends(get_c
                 "type": act.type,
                 "deadline_at": act.deadline_at,
                 "desc": act.desc,
+                "limits": act.limits,
                 "created_at": act.created_at,
                 "signup_count": int(signup_count or 0),
             }
@@ -128,6 +130,7 @@ def update_activity(
     act.type = payload.type
     act.deadline_at = payload.deadline_at
     act.desc = payload.desc
+    act.limits = payload.limits
     db.add(act)
     db.commit()
     db.refresh(act)

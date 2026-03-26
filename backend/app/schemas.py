@@ -61,6 +61,7 @@ class ActivityCreate(BaseModel):
     type: str = Field(default="副本", max_length=24)
     deadline_at: dt.datetime | None = None
     desc: str | None = Field(default=None, max_length=2000)
+    limits: dict | None = None
 
 
 class ActivityOut(BaseModel):
@@ -72,6 +73,7 @@ class ActivityOut(BaseModel):
     type: str
     deadline_at: dt.datetime | None
     desc: str | None
+    limits: dict | None = None
     created_at: dt.datetime
 
     class Config:

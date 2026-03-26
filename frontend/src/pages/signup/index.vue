@@ -52,11 +52,11 @@
       <view v-else class="signup-list-wrap">
         <scroll-view scroll-y class="signup-left-summary" :show-scrollbar="false">
           <view
-            class="signup-left-item signup-left-item--active"
+            class="signup-left-item"
+            :class="{ 'signup-left-item--active': activeLeftKey === 'my' }"
             @click="scrollToGroup('my')"
             :style="{ color: '#16a34a' }"
           >
-            <text class="signup-left-item-dot signup-left-item-dot--my"></text>
             我的报名（{{ mySignups.length }}）
           </view>
 
@@ -64,13 +64,10 @@
             v-for="g in signupClassGroups"
             :key="g.classLabel"
             class="signup-left-item"
+            :class="{ 'signup-left-item--active': activeLeftKey === g.classLabel }"
             @click="scrollToGroup(g.classLabel)"
             :style="{ color: getClassColorByLabel(g.classLabel) }"
           >
-            <text
-              class="signup-left-item-dot"
-              :style="{ background: getClassColorByLabel(g.classLabel) }"
-            ></text>
             {{ g.classLabel }}（{{ g.signups.length }}）
           </view>
 
@@ -90,18 +87,21 @@
           <view
             class="signup-group-section"
           >
-            <view
-              class="signup-group-title"
-              :id="getGroupSectionId('my')"
-            >
-              我的报名（{{ mySignups.length }}）
-            </view>
-            <view v-if="mySignups.length" class="signup-card-list">
+            <view class="signup-group-box">
               <view
-                v-for="s in mySignups"
-                :key="s.id"
-                class="signup-person-card"
+                class="signup-group-title"
+                :id="getGroupSectionId('my')"
               >
+                <text class="signup-group-title-text">
+                  我的报名（{{ mySignups.length }}）
+                </text>
+              </view>
+              <view v-if="mySignups.length" class="signup-card-list">
+                <view
+                  v-for="s in mySignups"
+                  :key="s.id"
+                  class="signup-person-card"
+                >
                 <view
                   class="signup-avatar"
                   :style="{ background: getClassColorByLabel(getSignupClassLabel(s)) }"
@@ -128,9 +128,15 @@
                 >
                   ...
                 </button>
+                <view
+                  v-if="getSignupSpecBarVisible(s)"
+                  class="signup-spec-bar"
+                  :style="getSignupSpecBarStyle(s)"
+                ></view>
               </view>
+              </view>
+              <view v-else class="signup-group-empty">暂无报名</view>
             </view>
-            <view v-else class="signup-group-empty">暂无报名</view>
           </view>
 
           <view
@@ -138,18 +144,27 @@
             :key="g.classLabel"
             class="signup-group-section"
           >
-            <view
-              class="signup-group-title"
-              :id="getGroupSectionId(g.classLabel)"
-            >
-              {{ g.classLabel }}（{{ g.signups.length }}）
-            </view>
-            <view v-if="g.signups.length" class="signup-card-list">
+            <view class="signup-group-box">
               <view
-                v-for="s in g.signups"
-                :key="s.id"
-                class="signup-person-card"
+                class="signup-group-title signup-group-title--colored"
+                :id="getGroupSectionId(g.classLabel)"
+                :style="{ background: getClassColorByLabel(g.classLabel) }"
               >
+                <view
+                  class="signup-group-icon role-icon"
+                  :class="`role-icon--${getClassKeyByLabel(g.classLabel)}`"
+                  :style="{ backgroundColor: '#ffffff' }"
+                ></view>
+                <text class="signup-group-title-text">
+                  {{ g.classLabel }}（{{ g.signups.length }}）
+                </text>
+              </view>
+              <view v-if="g.signups.length" class="signup-card-list">
+                <view
+                  v-for="s in g.signups"
+                  :key="s.id"
+                  class="signup-person-card"
+                >
                 <view
                   class="signup-avatar"
                   :style="{ background: getClassColorByLabel(g.classLabel) }"
@@ -174,7 +189,14 @@
                 >
                   ...
                 </button>
+                <view
+                  v-if="getSignupSpecBarVisible(s)"
+                  class="signup-spec-bar"
+                  :style="getSignupSpecBarStyle(s)"
+                ></view>
               </view>
+              </view>
+              <view v-else class="signup-group-empty">暂无报名</view>
             </view>
           </view>
         </scroll-view>
@@ -189,7 +211,73 @@
         </view>
         <view class="info-body">
           <view v-if="infoModalKey === 'intro'">{{ activity.desc || '暂无简介。' }}</view>
-          <view v-else-if="infoModalKey === 'limit'">限制信息暂未接入。</view>
+          <view v-else-if="infoModalKey === 'limit'" class="limit-view">
+            <view class="limit-title">人数限制</view>
+            <view v-if="!hasActivityLimits" class="limit-missing">
+              当前活动未保存“人数限定”数据（可能是活动创建于旧版本，或后端未更新/未迁移）。
+              请在“组队-我创建的”活动里编辑并重新保存一次人数限定后再查看。
+            </view>
+
+            <view class="limit-grid">
+              <view class="limit-row">
+                <view class="limit-cell limit-cell--label">总人数</view>
+                <view class="limit-cell limit-cell--value">{{ limitDisplay(limitPayload.total) }}</view>
+              </view>
+              <view class="limit-row">
+                <view class="limit-cell limit-cell--label">
+                  <view class="quick-icon quick-icon--tank limit-role-icon"></view>
+                  <text>坦克</text>
+                </view>
+                <view class="limit-cell limit-cell--value">{{ limitDisplay(limitPayload.tank) }}</view>
+              </view>
+              <view class="limit-row">
+                <view class="limit-cell limit-cell--label">
+                  <view class="quick-icon quick-icon--healer limit-role-icon"></view>
+                  <text>治疗</text>
+                </view>
+                <view class="limit-cell limit-cell--value">{{ limitDisplay(limitPayload.healer) }}</view>
+              </view>
+              <view class="limit-row">
+                <view class="limit-cell limit-cell--label">
+                  <view class="quick-icon quick-icon--dps limit-role-icon"></view>
+                  <text>输出</text>
+                </view>
+                <view class="limit-cell limit-cell--value">{{ limitDisplay(limitPayload.dps) }}</view>
+              </view>
+            </view>
+
+            <view class="limit-classes">
+              <view
+                v-for="c in limitClasses"
+                :key="c.id"
+                class="limit-class-row"
+              >
+                <view
+                  class="limit-class-name"
+                  :style="{ color: getClassColorByLabel(c.name) }"
+                >
+                  {{ c.name }}
+                </view>
+                <view class="limit-class-limit">{{ limitDisplay(c.limit) }}</view>
+                <view class="limit-spec-name-col">
+                  {{ (c.specs && c.specs[0] && c.specs[0].name) || '-' }}
+                </view>
+                <view class="limit-spec-limit-col">
+                  {{ limitDisplay((c.specs && c.specs[0] && c.specs[0].limit)) }}
+                </view>
+                <view class="limit-spec-name-col">
+                  {{ (c.specs && c.specs[1] && c.specs[1].name) || '-' }}
+                </view>
+                <view class="limit-spec-limit-col">
+                  {{ limitDisplay((c.specs && c.specs[1] && c.specs[1].limit)) }}
+                </view>
+              </view>
+            </view>
+
+            <view class="limit-tip">
+              <text class="limit-tip-line">提示：∞ 表示人数不限，× 表示禁止</text>
+            </view>
+          </view>
           <view v-else-if="infoModalKey === 'log'">日志暂未接入。</view>
         </view>
         <view class="signup-modal-footer">
@@ -203,14 +291,6 @@
         <view class="signup-modal-header">
           <view class="signup-modal-title">报名</view>
           <view class="signup-modal-close" @click="closeSignupModal">×</view>
-        </view>
-
-        <view class="signup-segment">
-          <view class="signup-segment-item signup-segment-item--active">
-            简易
-          </view>
-          <view class="signup-segment-item">自定义角色</view>
-          <view class="signup-segment-item">批量报名</view>
         </view>
 
         <view class="signup-form">
@@ -249,10 +329,35 @@
           <button class="footer-btn footer-btn--ghost" @click="closeSignupModal">
             取消
           </button>
+          <button class="footer-btn footer-btn--ghost" @click="openHistoryRoles">
+            历史角色
+          </button>
           <button class="footer-btn footer-btn--primary" type="primary" @click="submitSignup">
             确定
           </button>
         </view>
+      </view>
+    </view>
+
+    <!-- 历史角色（全屏） -->
+    <view v-if="showHistoryRoles" class="modal-mask" @click="closeHistoryRoles">
+      <view class="history-roles" @click.stop>
+        <view class="signup-modal-header">
+          <view class="signup-modal-title">历史角色</view>
+          <view class="signup-modal-close" @click="closeHistoryRoles">×</view>
+        </view>
+        <scroll-view scroll-y class="history-roles-list" :show-scrollbar="false">
+          <view v-if="!historyRoles.length" class="history-roles-empty">暂无历史角色</view>
+          <view
+            v-for="(r, idx) in historyRoles"
+            :key="`${r.gameId}_${r.mainRole}_${idx}`"
+            class="history-roles-item"
+            @click="useHistoryRole(r)"
+          >
+            <view class="history-roles-gameid">{{ r.gameId }}</view>
+            <view class="history-roles-role">{{ r.mainRole }}</view>
+          </view>
+        </scroll-view>
       </view>
     </view>
 
@@ -406,6 +511,9 @@ export default {
       signups: [],
       myGameId: '',
       mySignupIds: [],
+      activeLeftKey: 'my',
+      groupIdToLabel: {},
+      scrollUpdateTimer: null,
       scrollTop: 0,
       showSignupActionsMenu: false,
       currentSignupForMenu: null,
@@ -414,6 +522,8 @@ export default {
       showInfoModal: false,
       infoModalKey: 'intro',
       showSignupModal: false,
+      showHistoryRoles: false,
+      historyRoles: [],
       showRolePicker: false,
       roleClassOptions: ['juren', 'shendun', 'leiying', 'qinglan', 'bingmo', 'shensheshou', 'senyuzhe', 'linghun'],
       roleClassLabels: {
@@ -467,6 +577,49 @@ export default {
     this.reload()
   },
   methods: {
+    rebuildGroupIdMap() {
+      const map = {}
+      map[this.getGroupSectionId('my')] = 'my'
+      for (const g of this.signupClassGroups || []) {
+        map[this.getGroupSectionId(g.classLabel)] = g.classLabel
+      }
+      this.groupIdToLabel = map
+    },
+    updateActiveFromScroll() {
+      // 根据右侧滚动位置，找最靠近顶部的分组标题
+      const query = uni.createSelectorQuery().in(this)
+      let containerRect = null
+      let titles = []
+      query.select('.signup-groups').boundingClientRect((r) => {
+        containerRect = r
+      })
+      query.selectAll('.signup-group-title').boundingClientRect((arr) => {
+        titles = Array.isArray(arr) ? arr : []
+      })
+      query.exec(() => {
+        if (!containerRect || !titles.length) return
+        const cTop = containerRect.top || 0
+        const threshold = cTop + 8
+
+        // 选出“顶部最近且不在阈值之上太多”的那个；如果都在阈值之上，用最后一个
+        let best = null
+        for (const t of titles) {
+          if (!t) continue
+          const top = t.top || 0
+          if (top <= threshold) {
+            best = t
+          } else {
+            // 第一个进入视口下方的标题：若还没 best，则用它；否则保持 best（上一个标题）
+            if (!best) best = t
+            break
+          }
+        }
+        if (!best || !best.id) return
+        const label = this.groupIdToLabel[best.id]
+        if (!label) return
+        this.activeLeftKey = label
+      })
+    },
     getSignupClassLabel(s) {
       const note = s && s.note ? String(s.note) : ''
       const m =
@@ -499,6 +652,46 @@ export default {
       }
       return label
     },
+    getSignupSpecName(s) {
+      const note = s && s.note ? String(s.note) : ''
+      const m = note.match(/专精[:：]\s*([^；;]+)/) || note.match(/主专精[:：]\s*([^；;]+)/)
+      if (!m || !m[1]) return ''
+      const parts = String(m[1]).split('-')
+      return parts.length >= 2 ? String(parts[1] || '') : ''
+    },
+    getSignupSpecIndex(s) {
+      const classLabel = this.getSignupClassLabel(s)
+      const classKey = this.getClassKeyByLabel(classLabel)
+      if (!classKey) return null
+      const specs = (this.roleSpecsByClass && this.roleSpecsByClass[classKey]) || []
+      if (!Array.isArray(specs) || specs.length < 2) return null
+      const specName = this.getSignupSpecName(s)
+      if (!specName) return null
+      if (specName === specs[1]) return 1
+      if (specName === specs[0]) return 0
+      return null
+    },
+    getSignupSpecBarVisible(s) {
+      return this.getSignupSpecIndex(s) !== null
+    },
+    getSignupSpecBarStyle(s) {
+      const idx = this.getSignupSpecIndex(s)
+      const classLabel = this.getSignupClassLabel(s)
+      const color = this.getClassColorByLabel(classLabel)
+      if (idx === 1) {
+        return {
+          backgroundImage: `linear-gradient(90deg, #ffffff 0%, #ffffff 50%, ${color} 50%, ${color} 100%)`,
+        }
+      }
+      return {
+        backgroundImage: `linear-gradient(90deg, ${color} 0%, ${color} 50%, #ffffff 50%, #ffffff 100%)`,
+      }
+    },
+    limitDisplay(val) {
+      if (val === -1) return '×'
+      if (val === null || val === undefined) return '∞'
+      return String(val)
+    },
     formatSignupTime(iso) {
       if (!iso) return '--'
       const dt = new Date(iso)
@@ -522,6 +715,19 @@ export default {
         灵魂乐手: this.roleClassColorMap && this.roleClassColorMap.linghun,
       }
       return (inv && inv[label]) || '#94a3b8'
+    },
+    getClassKeyByLabel(label) {
+      const map = {
+        森语者: 'senyuzhe',
+        冰魔导师: 'bingmo',
+        雷影剑士: 'leiying',
+        青岚骑士: 'qinglan',
+        巨人守护者: 'juren',
+        神射手: 'shensheshou',
+        神盾骑士: 'shendun',
+        灵魂乐手: 'linghun',
+      }
+      return map[label] || ''
     },
     sanitizeGroupId(label) {
       const s = String(label || '')
@@ -585,6 +791,12 @@ export default {
     onSignupScroll(e) {
       const v = e && e.detail ? e.detail.scrollTop : 0
       if (typeof v === 'number') this.scrollTop = v
+      // throttle: avoid heavy selectorQuery on every tick
+      if (this.scrollUpdateTimer) return
+      this.scrollUpdateTimer = setTimeout(() => {
+        this.scrollUpdateTimer = null
+        this.updateActiveFromScroll()
+      }, 120)
     },
     isMySignup(s) {
       if (!s) return false
@@ -724,6 +936,10 @@ export default {
         uni.showToast({ title: '加载失败', icon: 'none' })
       } finally {
         this.loading = false
+        this.$nextTick(() => {
+          this.rebuildGroupIdMap()
+          this.updateActiveFromScroll()
+        })
       }
     },
     formatDeadline(deadlineAt) {
@@ -774,6 +990,67 @@ export default {
     },
     closeRolePicker() {
       this.showRolePicker = false
+    },
+    getHistoryStorageKey() {
+      // 用本机“当前账号”维度隔离；这里用最近一次报名的 gameId 作为账号标识（无更可靠账号信息时）。
+      let k = ''
+      try {
+        k = uni.getStorageSync('starhub_my_game_id') || ''
+      } catch {}
+      const key = (k || this.myGameId || 'default').trim()
+      return `starhub_history_roles_${encodeURIComponent(key)}`
+    },
+    loadHistoryRoles() {
+      try {
+        const raw = uni.getStorageSync(this.getHistoryStorageKey())
+        const arr = raw ? JSON.parse(raw) : []
+        this.historyRoles = Array.isArray(arr) ? arr.slice(0, 20) : []
+      } catch {
+        this.historyRoles = []
+      }
+    },
+    saveHistoryRole(gameId, mainRole) {
+      const gid = String(gameId || '').trim()
+      const role = String(mainRole || '').trim()
+      if (!gid || !role) return
+      this.loadHistoryRoles()
+      const next = []
+      // newest first, de-dupe by (gameId + mainRole)
+      next.push({ gameId: gid, mainRole: role })
+      for (const r of this.historyRoles || []) {
+        if (!r) continue
+        const rg = String(r.gameId || '').trim()
+        const rr = String(r.mainRole || '').trim()
+        if (!rg || !rr) continue
+        if (rg === gid && rr === role) continue
+        next.push({ gameId: rg, mainRole: rr })
+        if (next.length >= 20) break
+      }
+      this.historyRoles = next
+      try {
+        uni.setStorageSync(this.getHistoryStorageKey(), JSON.stringify(next))
+      } catch {}
+    },
+    openHistoryRoles() {
+      this.loadHistoryRoles()
+      this.showHistoryRoles = true
+    },
+    closeHistoryRoles() {
+      this.showHistoryRoles = false
+    },
+    useHistoryRole(r) {
+      if (!r) return
+      const gid = String(r.gameId || '').trim()
+      const role = String(r.mainRole || '').trim()
+      if (gid) this.signupForm.gameId = gid
+      if (role) this.signupForm.mainRole = role
+      // 尝试同步当前职业到选择器（不影响正常使用）
+      try {
+        const clsLabel = role.split('-')[0]
+        const key = this.getClassKeyByLabel(clsLabel)
+        if (key) this.selectedRoleClass = key
+      } catch {}
+      this.showHistoryRoles = false
     },
     selectRoleClass(cls) {
       this.selectedRoleClass = cls
@@ -836,6 +1113,10 @@ export default {
           }
         } catch {}
         this.showSignupModal = false
+        // 保存历史角色（最多20条，去重：gameId + 职业-专精）
+        try {
+          this.saveHistoryRole(gameId, this.signupForm.mainRole)
+        } catch {}
         // refresh list
         await this.reload()
       } catch (e) {
@@ -846,6 +1127,34 @@ export default {
     },
   },
   computed: {
+    hasActivityLimits() {
+      return !!(this.activity && this.activity.limits)
+    },
+    limitPayload() {
+      const l = this.activity && this.activity.limits ? this.activity.limits : null
+      return {
+        total: l && l.total !== undefined ? l.total : null,
+        tank: l && l.tank !== undefined ? l.tank : null,
+        healer: l && l.healer !== undefined ? l.healer : null,
+        dps: l && l.dps !== undefined ? l.dps : null,
+        classes: l && Array.isArray(l.classes) ? l.classes : [],
+      }
+    },
+    limitClasses() {
+      const arr = (this.limitPayload && this.limitPayload.classes) || []
+      if (arr && arr.length) {
+        return arr
+          .filter((c) => c && c.id && c.name)
+          .slice(0, 30)
+      }
+      // fallback: show empty template (still matches职业/专精结构)
+      return this.roleClassOptions.map((id) => ({
+        id,
+        name: this.roleClassLabels[id] || id,
+        limit: null,
+        specs: (this.roleSpecsByClass[id] || []).map((name) => ({ name, limit: null })),
+      }))
+    },
     mySignups() {
       if (Array.isArray(this.mySignupIds) && this.mySignupIds.length) {
         return (this.signups || []).filter((s) => {
@@ -1105,6 +1414,8 @@ export default {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  border: 2rpx solid rgba(148, 163, 184, 0.35);
+  position: relative;
 }
 
 .signup-left-item:active {
@@ -1114,7 +1425,19 @@ export default {
 .signup-left-item--active {
   color: #111827;
   font-weight: 700;
-  border: 2rpx solid rgba(16, 185, 129, 0.25);
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.45);
+}
+
+.signup-left-item--active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 10rpx;
+  bottom: 10rpx;
+  width: 8rpx;
+  border-radius: 8rpx;
+  background: #16a34a;
 }
 
 .signup-left-item-dot {
@@ -1159,19 +1482,54 @@ export default {
   margin-bottom: 18rpx;
 }
 
-.signup-group-title {
+.signup-group-box {
   background: #ffffff;
   border-radius: 16rpx;
+  overflow: hidden;
+}
+
+.signup-group-title {
+  background: #ffffff;
+  border-radius: 16rpx 16rpx 0 0;
   padding: 18rpx 18rpx;
   color: #111827;
   font-size: 30rpx;
   font-weight: 700;
-  margin-bottom: 12rpx;
+  margin-bottom: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.signup-group-title--colored {
+  color: #ffffff;
+}
+
+.signup-group-dot {
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 999rpx;
+  flex-shrink: 0;
+}
+
+.signup-group-icon {
+  width: 28rpx;
+  height: 28rpx;
+  flex-shrink: 0;
+}
+
+.signup-group-title-text {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .signup-group-empty {
-  background: #ffffff;
-  border-radius: 16rpx;
+  background: transparent;
+  border-top: 1rpx solid rgba(148, 163, 184, 0.22);
   padding: 24rpx 18rpx;
   color: rgba(17, 24, 39, 0.45);
   font-size: 28rpx;
@@ -1181,17 +1539,28 @@ export default {
 .signup-card-list {
   display: flex;
   flex-direction: column;
-  gap: 14rpx;
+  gap: 0;
 }
 
 .signup-person-card {
-  background: #ffffff;
-  border-radius: 16rpx;
+  background: transparent;
+  border-radius: 0;
   padding: 18rpx 16rpx;
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: 14rpx;
+  border-top: 1rpx solid rgba(148, 163, 184, 0.22);
+  position: relative;
+}
+
+.signup-spec-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 8rpx;
+  pointer-events: none;
 }
 
 .signup-avatar {
@@ -1293,6 +1662,50 @@ export default {
   overflow: hidden;
 }
 
+.history-roles {
+  width: 92vw;
+  max-width: 720rpx;
+  height: 80vh;
+  background: #ffffff;
+  border-radius: 18rpx;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.history-roles-list {
+  flex: 1;
+  padding: 0 20rpx 20rpx;
+}
+
+.history-roles-empty {
+  padding: 60rpx 0;
+  text-align: center;
+  color: rgba(17, 24, 39, 0.45);
+  font-size: 28rpx;
+}
+
+.history-roles-item {
+  padding: 18rpx 0;
+  border-bottom: 2rpx solid rgba(0, 0, 0, 0.06);
+}
+
+.history-roles-item:active {
+  opacity: 0.9;
+}
+
+.history-roles-gameid {
+  font-size: 28rpx;
+  font-weight: 800;
+  color: #111827;
+}
+
+.history-roles-role {
+  margin-top: 6rpx;
+  font-size: 24rpx;
+  color: rgba(17, 24, 39, 0.6);
+}
+
 .signup-modal-header {
   padding: 18rpx 20rpx;
   display: flex;
@@ -1334,24 +1747,113 @@ export default {
   min-height: 240rpx;
 }
 
-.signup-segment {
-  display: flex;
-  padding: 16rpx 20rpx 0;
-  gap: 20rpx;
+.limit-view {
+  width: 100%;
 }
 
-.signup-segment-item {
-  flex: 1;
+.limit-title {
   text-align: center;
-  padding-bottom: 12rpx;
-  color: rgba(17, 24, 39, 0.6);
-  font-size: 28rpx;
+  font-size: 30rpx;
+  font-weight: 800;
+  color: rgba(17, 24, 39, 0.75);
+  margin-bottom: 16rpx;
 }
 
-.signup-segment-item--active {
-  color: #111827;
+.limit-missing {
+  margin-bottom: 14rpx;
+  padding: 12rpx 14rpx;
+  border-radius: 12rpx;
+  background: rgba(251, 191, 36, 0.18);
+  color: rgba(17, 24, 39, 0.7);
+  font-size: 24rpx;
+  line-height: 34rpx;
+}
+
+.limit-grid {
+  background: rgba(243, 244, 246, 0.7);
+  border-radius: 14rpx;
+  padding: 10rpx 14rpx;
+}
+
+.limit-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 10rpx 0;
+}
+
+.limit-cell--label {
+  width: 240rpx;
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  color: rgba(17, 24, 39, 0.65);
   font-weight: 700;
-  border-bottom: 6rpx solid #1d4ed8;
+}
+
+.limit-role-icon {
+  width: 26rpx;
+  height: 26rpx;
+}
+
+.limit-cell--value {
+  flex: 1;
+  text-align: left;
+  color: rgba(17, 24, 39, 0.65);
+  font-weight: 800;
+}
+
+.limit-classes {
+  margin-top: 14rpx;
+}
+
+.limit-class-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 12rpx;
+  padding: 14rpx 6rpx;
+  border-bottom: 2rpx solid rgba(0, 0, 0, 0.06);
+}
+
+.limit-class-name {
+  width: 150rpx;
+  font-size: 26rpx;
+  font-weight: 900;
+}
+
+.limit-class-limit {
+  width: 56rpx;
+  text-align: center;
+  font-size: 26rpx;
+  font-weight: 900;
+  color: rgba(17, 24, 39, 0.55);
+}
+
+.limit-spec-name-col {
+  width: 120rpx;
+  font-size: 22rpx;
+  color: rgba(17, 24, 39, 0.55);
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.limit-spec-limit-col {
+  width: 56rpx;
+  text-align: center;
+  font-size: 24rpx;
+  color: rgba(17, 24, 39, 0.65);
+  font-weight: 900;
+}
+
+.limit-tip {
+  margin-top: 16rpx;
+  padding: 10rpx 6rpx 0;
+  color: rgba(17, 24, 39, 0.45);
+  font-size: 22rpx;
 }
 
 .signup-form {
