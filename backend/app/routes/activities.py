@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..deps import get_current_user
-from ..models import Activity, Signup, User
-from ..schemas import ActivityCreate, ActivityMineOut, ActivityOut, SignupCreate, SignupOut
+from ..models import Activity, ActivitySignupEvent, Signup, User
+from ..schemas import ActivityCreate, ActivityMineOut, ActivityOut, SignupCreate, SignupEventOut, SignupOut
 from ..utils import generate_code
 
 
@@ -156,9 +156,36 @@ def create_signup(activity_id: str, payload: SignupCreate, db: Session = Depends
 
     s = Signup(activity_id=act.id, nickname=payload.nickname, role=payload.role, note=payload.note)
     db.add(s)
+    db.flush()
+    db.add(
+        ActivitySignupEvent(
+            activity_id=act.id,
+            signup_id=s.id,
+            action="signup",
+            nickname=s.nickname,
+            note=s.note,
+        )
+    )
     db.commit()
     db.refresh(s)
     return s
+
+
+@router.get("/{activity_id}/signup-events", response_model=list[SignupEventOut])
+def list_signup_events(activity_id: str, db: Session = Depends(get_db)):
+    act = db.get(Activity, activity_id)
+    if not act:
+        raise HTTPException(status_code=404, detail="Activity not found")
+    rows = (
+        db.execute(
+            select(ActivitySignupEvent)
+            .where(ActivitySignupEvent.activity_id == act.id)
+            .order_by(ActivitySignupEvent.created_at.desc())
+        )
+        .scalars()
+        .all()
+    )
+    return rows
 
 
 @router.get("/{activity_id}/signups", response_model=list[SignupOut])
@@ -183,6 +210,15 @@ def delete_signup(activity_id: str, signup_id: str, db: Session = Depends(get_db
     s = db.get(Signup, signup_id)
     if not s or str(s.activity_id) != str(act.id):
         raise HTTPException(status_code=404, detail="Signup not found")
+    db.add(
+        ActivitySignupEvent(
+            activity_id=act.id,
+            signup_id=s.id,
+            action="cancel",
+            nickname=s.nickname,
+            note=s.note,
+        )
+    )
     db.delete(s)
     db.commit()
     return None

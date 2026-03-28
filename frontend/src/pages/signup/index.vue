@@ -3,22 +3,22 @@
     <view class="hero-card">
       <view class="hero-main">
         <text class="hero-title">{{ activity.title || '标题' }}</text>
-        <view class="meta-row">
+        <view class="meta-row meta-row--deadline">
           <text class="meta-label">截止:</text>
           <text class="meta-value">{{ formatDeadline(activity.deadline_at) }}</text>
+          <view v-if="activityCreatorName" class="activity-creator activity-creator--after-deadline">
+            <view class="activity-creator-avatar" :style="activityCreatorAvatarStyle">
+              <text class="activity-creator-avatar-text">{{ activityCreatorInitial }}</text>
+            </view>
+            <text class="activity-creator-name">{{ activityCreatorName }}</text>
+          </view>
         </view>
         <view class="meta-row meta-row--type">
-          <text class="created-type">{{ activity.type || '-' }}</text>
-          <view class="meta-row-type-right">
+          <view class="meta-row-type-left">
+            <text class="created-type">{{ activity.type || '-' }}</text>
             <view class="signup-pair">
               <view class="signup-icon"></view>
               <text class="signup-count">{{ signupCount }}</text>
-            </view>
-            <view v-if="activityCreatorName" class="activity-creator">
-              <view class="activity-creator-avatar" :style="activityCreatorAvatarStyle">
-                <text class="activity-creator-avatar-text">{{ activityCreatorInitial }}</text>
-              </view>
-              <text class="activity-creator-name">{{ activityCreatorName }}</text>
             </view>
           </view>
         </view>
@@ -135,9 +135,8 @@
                   </view>
                 </view>
                 <button
-                  v-if="isMySignup(s)"
                   class="signup-person-more"
-                  @click="onSignupMore(s)"
+                  @click.stop="onSignupMore(s)"
                 >
                   ...
                 </button>
@@ -196,9 +195,8 @@
                   </view>
                 </view>
                 <button
-                  v-if="isMySignup(s)"
                   class="signup-person-more"
-                  @click="onSignupMore(s)"
+                  @click.stop="onSignupMore(s)"
                 >
                   ...
                 </button>
@@ -217,7 +215,7 @@
     </view>
 
     <view v-if="showInfoModal" class="modal-mask" @click="closeInfoModal">
-      <view class="info-modal" @click.stop>
+      <view class="info-modal" :class="{ 'info-modal--log': infoModalKey === 'log' }" @click.stop>
         <view class="signup-modal-header">
           <view class="signup-modal-title">{{ infoModalTitle }}</view>
           <view class="signup-modal-close" @click="closeInfoModal">×</view>
@@ -294,7 +292,36 @@
               <text class="limit-tip-line">提示：∞ 表示人数不限，× 表示禁止</text>
             </view>
           </view>
-          <view v-else-if="infoModalKey === 'log'">日志暂未接入。</view>
+          <view v-else-if="infoModalKey === 'log'" class="signup-log-wrap">
+            <scroll-view scroll-y class="signup-log-scroll" :show-scrollbar="false">
+              <view v-if="!signupEvents.length" class="signup-log-empty">暂无报名或取消记录</view>
+              <view v-else class="signup-log-list">
+                <view v-for="ev in signupEvents" :key="ev.id" class="signup-log-row">
+                  <view class="signup-log-row-head">
+                    <text
+                      class="signup-log-action"
+                      :class="ev.action === 'cancel' ? 'signup-log-action--cancel' : 'signup-log-action--signup'"
+                    >
+                      {{ signupEventActionLabel(ev.action) }}
+                    </text>
+                    <text class="signup-log-time">{{ formatSignupTime(ev.created_at) }}</text>
+                  </view>
+                  <view class="signup-log-line">
+                    <text class="signup-log-k">角色ID / 报名者</text>
+                    <text class="signup-log-v">{{ ev.nickname || '-' }}</text>
+                  </view>
+                  <view class="signup-log-line">
+                    <text class="signup-log-k">专精</text>
+                    <text class="signup-log-v">{{ getSignupEventSpecText(ev) }}</text>
+                  </view>
+                  <view class="signup-log-line signup-log-line--sub">
+                    <text class="signup-log-k">报名记录ID</text>
+                    <text class="signup-log-v signup-log-uuid">{{ formatSignupUuid(ev.signup_id) }}</text>
+                  </view>
+                </view>
+              </view>
+            </scroll-view>
+          </view>
         </view>
         <view class="signup-modal-footer">
           <button class="footer-btn footer-btn--ghost" @click="closeInfoModal">关闭</button>
@@ -478,10 +505,18 @@
       @click="closeSignupActionsMenu"
     >
       <view class="actions-menu" @click.stop>
-        <view class="actions-menu-item" @click="onSignupEditNote">
+        <view
+          v-if="!signupActionsMenuLimited"
+          class="actions-menu-item"
+          @click="onSignupEditNote"
+        >
           修改备注
         </view>
-        <view class="actions-menu-item" @click="onSignupLeave">
+        <view
+          v-if="!signupActionsMenuLimited"
+          class="actions-menu-item"
+          @click="onSignupLeave"
+        >
           请假
         </view>
         <view class="actions-menu-item actions-menu-item--danger" @click="onSignupCancel">
@@ -566,6 +601,7 @@ export default {
       },
       signupCount: 0,
       signups: [],
+      signupEvents: [],
       myGameId: '',
       mySignupIds: [],
       activeLeftKey: 'my',
@@ -796,6 +832,22 @@ export default {
       const mi = String(dt.getMinutes()).padStart(2, '0')
       return `${mm}-${dd} ${hh}:${mi}`
     },
+    signupEventActionLabel(action) {
+      if (action === 'cancel') return '取消报名'
+      return '报名'
+    },
+    getSignupEventSpecText(ev) {
+      if (!ev) return '-'
+      return this.getSignupRoleText({
+        note: ev.note,
+        nickname: ev.nickname,
+        role: null,
+      })
+    },
+    formatSignupUuid(id) {
+      if (id == null || id === '') return '-'
+      return String(id)
+    },
     getClassColorByLabel(label) {
       // roleClassColorMap 是 key->color；这里把 classLabel 映射到 key 再取颜色
       const inv = {
@@ -1021,11 +1073,15 @@ export default {
       }
       this.loading = true
       try {
-        const data = await request(`/activities/${this.activityId}`)
+        const [data, signups, events] = await Promise.all([
+          request(`/activities/${this.activityId}`),
+          request(`/activities/${this.activityId}/signups`),
+          request(`/activities/${this.activityId}/signup-events`).catch(() => []),
+        ])
         this.activity = data || {}
-        const signups = await request(`/activities/${this.activityId}/signups`)
         this.signups = Array.isArray(signups) ? signups : []
         this.signupCount = this.signups.length
+        this.signupEvents = Array.isArray(events) ? events : []
       } catch (e) {
         uni.showToast({ title: '加载失败', icon: 'none' })
       } finally {
@@ -1235,6 +1291,12 @@ export default {
     },
   },
   computed: {
+    /** 当前菜单针对「非本人报名」：仅显示 取消报名 / 关闭 */
+    signupActionsMenuLimited() {
+      const s = this.currentSignupForMenu
+      if (!s) return false
+      return !this.isMySignup(s)
+    },
     hasActivityLimits() {
       return !!(this.activity && this.activity.limits)
     },
@@ -1403,6 +1465,12 @@ export default {
   margin-top: 8rpx;
 }
 
+.meta-row--deadline {
+  flex-wrap: wrap;
+  align-items: center;
+  row-gap: 6rpx;
+}
+
 .meta-label {
   font-size: 28rpx;
   color: #111827;
@@ -1416,26 +1484,23 @@ export default {
 
 .meta-row--type {
   margin-top: 14rpx;
-  justify-content: space-between;
+  justify-content: flex-start;
   width: 100%;
   flex-wrap: nowrap;
+  gap: 0;
+}
+
+.meta-row-type-left {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-shrink: 0;
   gap: 12rpx;
 }
 
 .created-type {
   font-size: 30rpx;
   color: #111827;
-  flex-shrink: 0;
-}
-
-.meta-row-type-right {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 16rpx;
-  margin-left: auto;
-  flex-shrink: 0;
-  min-width: 0;
 }
 
 .signup-pair {
@@ -1452,6 +1517,11 @@ export default {
   align-items: center;
   gap: 8rpx;
   max-width: 220rpx;
+  flex-shrink: 0;
+}
+
+.activity-creator--after-deadline {
+  margin-left: 12rpx;
 }
 
 .activity-creator-avatar {
@@ -2031,6 +2101,117 @@ export default {
   font-size: 26rpx;
   line-height: 40rpx;
   min-height: 240rpx;
+}
+
+.info-modal--log {
+  display: flex;
+  flex-direction: column;
+  max-height: 78vh;
+}
+
+.info-modal--log .info-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 8rpx;
+}
+
+.signup-log-wrap {
+  flex: 1;
+  min-height: 200rpx;
+  width: 100%;
+}
+
+.signup-log-scroll {
+  max-height: 52vh;
+  width: 100%;
+}
+
+.signup-log-empty {
+  padding: 36rpx 8rpx;
+  text-align: center;
+  color: rgba(17, 24, 39, 0.45);
+  font-size: 26rpx;
+}
+
+.signup-log-list {
+  padding-bottom: 12rpx;
+}
+
+.signup-log-row {
+  padding: 16rpx 0;
+  border-bottom: 2rpx solid rgba(0, 0, 0, 0.06);
+}
+
+.signup-log-row:last-child {
+  border-bottom-width: 0;
+}
+
+.signup-log-row-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+  margin-bottom: 10rpx;
+}
+
+.signup-log-action {
+  font-size: 26rpx;
+  font-weight: 800;
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+}
+
+.signup-log-action--signup {
+  color: #15803d;
+  background: rgba(34, 197, 94, 0.15);
+}
+
+.signup-log-action--cancel {
+  color: #b91c1c;
+  background: rgba(248, 113, 113, 0.18);
+}
+
+.signup-log-time {
+  font-size: 24rpx;
+  color: rgba(17, 24, 39, 0.5);
+  flex-shrink: 0;
+}
+
+.signup-log-line {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 12rpx;
+  padding: 4rpx 0;
+  font-size: 24rpx;
+  line-height: 34rpx;
+}
+
+.signup-log-line--sub {
+  opacity: 0.85;
+}
+
+.signup-log-k {
+  width: 220rpx;
+  flex-shrink: 0;
+  color: rgba(17, 24, 39, 0.5);
+  font-weight: 600;
+}
+
+.signup-log-v {
+  flex: 1;
+  word-break: break-all;
+  color: rgba(17, 24, 39, 0.82);
+  font-weight: 600;
+}
+
+.signup-log-uuid {
+  font-size: 22rpx;
+  font-weight: 500;
+  color: rgba(17, 24, 39, 0.55);
 }
 
 .limit-view {

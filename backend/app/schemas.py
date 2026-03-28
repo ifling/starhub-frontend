@@ -102,3 +102,16 @@ class SignupOut(BaseModel):
     class Config:
         from_attributes = True
 
+
+class SignupEventOut(BaseModel):
+    id: uuid.UUID
+    activity_id: uuid.UUID
+    signup_id: uuid.UUID
+    action: str
+    nickname: str
+    note: str | None
+    created_at: dt.datetime
+
+    class Config:
+        from_attributes = True
+

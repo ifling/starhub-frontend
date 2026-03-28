@@ -89,5 +89,34 @@ class Signup(Base):
     activity: Mapped[Activity] = relationship(back_populates="signups")
 
 
+class ActivitySignupEvent(Base):
+    """活动报名/取消记录（用于日志展示；取消发生在删除 Signup 行之前写入）。"""
+
+    __tablename__ = "activity_signup_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    activity_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("activities.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    signup_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    action: Mapped[str] = mapped_column(String(16), nullable=False)  # signup | cancel
+    nickname: Mapped[str] = mapped_column(String(64), nullable=False)
+    note: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: dt.datetime.now(dt.timezone.utc),
+    )
+
+
 Index("ix_signups_activity_created_at", Signup.activity_id, Signup.created_at)
+Index(
+    "ix_activity_signup_events_activity_created_at",
+    ActivitySignupEvent.activity_id,
+    ActivitySignupEvent.created_at,
+)
 
