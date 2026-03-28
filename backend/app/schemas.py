@@ -75,6 +75,7 @@ class ActivityOut(BaseModel):
     desc: str | None
     limits: dict | None = None
     created_at: dt.datetime
+    owner_username: str | None = None
 
     class Config:
         from_attributes = True

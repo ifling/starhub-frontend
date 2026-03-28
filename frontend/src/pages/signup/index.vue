@@ -9,23 +9,36 @@
         </view>
         <view class="meta-row meta-row--type">
           <text class="created-type">{{ activity.type || '-' }}</text>
-          <view class="signup-pair">
-            <view class="signup-icon"></view>
-            <text class="signup-count">{{ signupCount }}</text>
+          <view class="meta-row-type-right">
+            <view class="signup-pair">
+              <view class="signup-icon"></view>
+              <text class="signup-count">{{ signupCount }}</text>
+            </view>
+            <view v-if="activityCreatorName" class="activity-creator">
+              <view class="activity-creator-avatar" :style="activityCreatorAvatarStyle">
+                <text class="activity-creator-avatar-text">{{ activityCreatorInitial }}</text>
+              </view>
+              <text class="activity-creator-name">{{ activityCreatorName }}</text>
+            </view>
           </view>
         </view>
-        <view class="quick-row">
-          <view class="quick-item">
-            <view class="quick-icon quick-icon--tank"></view>
-            <text class="quick-num">0</text>
-          </view>
-          <view class="quick-item">
-            <view class="quick-icon quick-icon--healer"></view>
-            <text class="quick-num">0</text>
-          </view>
-          <view class="quick-item">
-            <view class="quick-icon quick-icon--dps"></view>
-            <text class="quick-num">0</text>
+        <view class="quick-block">
+          <view class="quick-row">
+            <view class="quick-item" @click="openRoleStatModal('tank')">
+              <view class="quick-icon quick-icon--tank"></view>
+              <text class="quick-num">{{ quickRoleCounts.tank }}</text>
+              <text class="quick-chevron">›</text>
+            </view>
+            <view class="quick-item" @click="openRoleStatModal('healer')">
+              <view class="quick-icon quick-icon--healer"></view>
+              <text class="quick-num">{{ quickRoleCounts.healer }}</text>
+              <text class="quick-chevron">›</text>
+            </view>
+            <view class="quick-item" @click="openRoleStatModal('dps')">
+              <view class="quick-icon quick-icon--dps"></view>
+              <text class="quick-num">{{ quickRoleCounts.dps }}</text>
+              <text class="quick-chevron">›</text>
+            </view>
           </view>
         </view>
       </view>
@@ -212,7 +225,6 @@
         <view class="info-body">
           <view v-if="infoModalKey === 'intro'">{{ activity.desc || '暂无简介。' }}</view>
           <view v-else-if="infoModalKey === 'limit'" class="limit-view">
-            <view class="limit-title">人数限制</view>
             <view v-if="!hasActivityLimits" class="limit-missing">
               当前活动未保存“人数限定”数据（可能是活动创建于旧版本，或后端未更新/未迁移）。
               请在“组队-我创建的”活动里编辑并重新保存一次人数限定后再查看。
@@ -259,17 +271,21 @@
                   {{ c.name }}
                 </view>
                 <view class="limit-class-limit">{{ limitDisplay(c.limit) }}</view>
-                <view class="limit-spec-name-col">
-                  {{ (c.specs && c.specs[0] && c.specs[0].name) || '-' }}
+                <view class="limit-spec-pair limit-spec-pair--first">
+                  <view class="limit-spec-name-col">
+                    {{ (c.specs && c.specs[0] && c.specs[0].name) || '-' }}
+                  </view>
+                  <view class="limit-spec-limit-col">
+                    {{ limitDisplay((c.specs && c.specs[0] && c.specs[0].limit)) }}
+                  </view>
                 </view>
-                <view class="limit-spec-limit-col">
-                  {{ limitDisplay((c.specs && c.specs[0] && c.specs[0].limit)) }}
-                </view>
-                <view class="limit-spec-name-col">
-                  {{ (c.specs && c.specs[1] && c.specs[1].name) || '-' }}
-                </view>
-                <view class="limit-spec-limit-col">
-                  {{ limitDisplay((c.specs && c.specs[1] && c.specs[1].limit)) }}
+                <view class="limit-spec-pair limit-spec-pair--second">
+                  <view class="limit-spec-name-col">
+                    {{ (c.specs && c.specs[1] && c.specs[1].name) || '-' }}
+                  </view>
+                  <view class="limit-spec-limit-col">
+                    {{ limitDisplay((c.specs && c.specs[1] && c.specs[1].limit)) }}
+                  </view>
                 </view>
               </view>
             </view>
@@ -282,6 +298,34 @@
         </view>
         <view class="signup-modal-footer">
           <button class="footer-btn footer-btn--ghost" @click="closeInfoModal">关闭</button>
+        </view>
+      </view>
+    </view>
+
+    <!-- 坦克/治疗/输出 人数统计详情 -->
+    <view v-if="showRoleStatModal" class="modal-mask" @click="closeRoleStatModal">
+      <view class="info-modal role-stat-modal" @click.stop>
+        <view class="signup-modal-header">
+          <view class="signup-modal-title">{{ roleStatTitle }}</view>
+          <view class="signup-modal-close" @click="closeRoleStatModal">×</view>
+        </view>
+        <scroll-view scroll-y class="role-stat-scroll" :show-scrollbar="false">
+          <view class="role-stat-inner">
+            <view v-if="!roleStatList.length" class="role-stat-empty">该分类暂无报名</view>
+            <view v-else class="role-stat-tags">
+              <view
+                v-for="s in roleStatList"
+                :key="s.id"
+                class="role-stat-tag"
+                :style="roleStatTagStyle(s)"
+              >
+                <text class="role-stat-tag-text">{{ getRoleStatLine(s) }}</text>
+              </view>
+            </view>
+          </view>
+        </scroll-view>
+        <view class="signup-modal-footer">
+          <button class="footer-btn footer-btn--ghost" @click="closeRoleStatModal">关闭</button>
         </view>
       </view>
     </view>
@@ -489,6 +533,18 @@
 <script>
 import { request } from '../../utils/request'
 
+/** 人数限定展示、报名列表分组、职业选择器：统一职业顺序 */
+const CLASS_DISPLAY_ORDER_IDS = [
+  'juren',
+  'shendun',
+  'senyuzhe',
+  'linghun',
+  'bingmo',
+  'leiying',
+  'qinglan',
+  'shensheshou',
+]
+
 export default {
   name: 'SignupPage',
   data() {
@@ -506,6 +562,7 @@ export default {
         type: '',
         deadline_at: '',
         desc: '',
+        owner_username: '',
       },
       signupCount: 0,
       signups: [],
@@ -524,8 +581,10 @@ export default {
       showSignupModal: false,
       showHistoryRoles: false,
       historyRoles: [],
+      showRoleStatModal: false,
+      roleStatSlot: 'tank',
       showRolePicker: false,
-      roleClassOptions: ['juren', 'shendun', 'leiying', 'qinglan', 'bingmo', 'shensheshou', 'senyuzhe', 'linghun'],
+      roleClassOptions: [...CLASS_DISPLAY_ORDER_IDS],
       roleClassLabels: {
         shendun: '神盾骑士',
         juren: '巨人守护者',
@@ -633,6 +692,41 @@ export default {
       }
       const parts = v.split('-')
       return parts[0] || v
+    },
+    /** 报名页第四行：坦克/治疗/输出人数。职业归类：巨人守护者、神盾骑士=坦克；森语者、灵魂乐手=治疗；其余=输出 */
+    getQuickRoleSlotByLabel(label) {
+      const x = String(label || '').trim()
+      if (x === '坦克' || x === '巨人守护者' || x === '神盾骑士') return 'tank'
+      if (x === '治疗' || x === '森语者' || x === '灵魂乐手') return 'healer'
+      if (x === '输出') return 'dps'
+      return 'dps'
+    },
+    /** 坦克/治疗/输出统计弹窗：一行「游戏ID-专精」 */
+    getRoleStatLine(s) {
+      const id = (s && s.nickname != null ? String(s.nickname) : '').trim() || '-'
+      const spec = String(this.getSignupRoleText(s) || '').trim() || '-'
+      return `${id}-${spec}`
+    },
+    hexToRgba(hex, a) {
+      const h = String(hex || '').trim()
+      if (!h.startsWith('#')) return `rgba(148, 163, 184, ${a})`
+      let x = h.slice(1)
+      if (x.length === 3) x = x.split('').map((ch) => ch + ch).join('')
+      if (x.length !== 6) return `rgba(148, 163, 184, ${a})`
+      const n = parseInt(x, 16)
+      if (Number.isNaN(n)) return `rgba(148, 163, 184, ${a})`
+      const r = (n >> 16) & 255
+      const g = (n >> 8) & 255
+      const b = n & 255
+      return `rgba(${r},${g},${b},${a})`
+    },
+    roleStatTagStyle(s) {
+      const c = this.getClassColorByLabel(this.getSignupClassLabel(s))
+      return {
+        color: c,
+        borderColor: c,
+        backgroundColor: this.hexToRgba(c, 0.14),
+      }
     },
     roleToApiRoleText(role) {
       if (!role) return '未分类'
@@ -966,6 +1060,7 @@ export default {
       this.showInfoModal = true
       this.showSignupModal = false
       this.showRolePicker = false
+      this.showRoleStatModal = false
     },
     closeInfoModal() {
       this.showInfoModal = false
@@ -978,11 +1073,23 @@ export default {
         note: '',
       }
       this.showRolePicker = false
+      this.showRoleStatModal = false
       this.showSignupModal = true
     },
     closeSignupModal() {
       this.showSignupModal = false
       this.showRolePicker = false
+    },
+    openRoleStatModal(slot) {
+      this.roleStatSlot = slot === 'healer' || slot === 'dps' ? slot : 'tank'
+      this.showRoleStatModal = true
+      this.showInfoModal = false
+      this.showSignupModal = false
+      this.showRolePicker = false
+      this.showHistoryRoles = false
+    },
+    closeRoleStatModal() {
+      this.showRoleStatModal = false
     },
     openMainRolePicker() {
       this.selectedRoleClass = this.roleClassOptions[0]
@@ -1033,6 +1140,7 @@ export default {
     },
     openHistoryRoles() {
       this.loadHistoryRoles()
+      this.showRoleStatModal = false
       this.showHistoryRoles = true
     },
     closeHistoryRoles() {
@@ -1143,12 +1251,18 @@ export default {
     limitClasses() {
       const arr = (this.limitPayload && this.limitPayload.classes) || []
       if (arr && arr.length) {
-        return arr
+        const list = arr
           .filter((c) => c && c.id && c.name)
           .slice(0, 30)
+        list.sort((a, b) => {
+          const ia = CLASS_DISPLAY_ORDER_IDS.indexOf(a.id)
+          const ib = CLASS_DISPLAY_ORDER_IDS.indexOf(b.id)
+          return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib)
+        })
+        return list
       }
       // fallback: show empty template (still matches职业/专精结构)
-      return this.roleClassOptions.map((id) => ({
+      return CLASS_DISPLAY_ORDER_IDS.map((id) => ({
         id,
         name: this.roleClassLabels[id] || id,
         limit: null,
@@ -1176,16 +1290,67 @@ export default {
         map[cls].push(s)
       }
       const groups = Object.keys(map).map((k) => ({ classLabel: k, signups: map[k] }))
-      // exclude my signups already shown in left list? Keep them in class group too.
-      // screenshot shows separated "我的报名" and also appears again in class group; we follow that behavior.
-      groups.sort((a, b) => (b.signups?.length || 0) - (a.signups?.length || 0))
+      groups.sort((a, b) => {
+        const ka = this.getClassKeyByLabel(a.classLabel)
+        const kb = this.getClassKeyByLabel(b.classLabel)
+        const ia = ka ? CLASS_DISPLAY_ORDER_IDS.indexOf(ka) : -1
+        const ib = kb ? CLASS_DISPLAY_ORDER_IDS.indexOf(kb) : -1
+        const sa = ia === -1 ? 1000 : ia
+        const sb = ib === -1 ? 1000 : ib
+        if (sa !== sb) return sa - sb
+        return String(a.classLabel).localeCompare(String(b.classLabel), 'zh-CN')
+      })
       return groups
     },
     infoModalTitle() {
       if (this.infoModalKey === 'intro') return '简介'
-      if (this.infoModalKey === 'limit') return '限制'
+      if (this.infoModalKey === 'limit') return '人数限制'
       if (this.infoModalKey === 'log') return '日志'
       return '信息'
+    },
+    activityCreatorName() {
+      const u = this.activity && this.activity.owner_username
+      return u != null && String(u).trim() ? String(u).trim() : ''
+    },
+    activityCreatorInitial() {
+      const n = this.activityCreatorName
+      if (!n) return '?'
+      return n.slice(0, 1)
+    },
+    activityCreatorAvatarStyle() {
+      const palette = ['#0f68b3', '#32bf0f', '#6b39de', '#5c82e1', '#11b5b2', '#d4d116']
+      const name = this.activityCreatorName || ''
+      let h = 0
+      for (let i = 0; i < name.length; i++) h += name.charCodeAt(i)
+      return { backgroundColor: palette[h % palette.length] }
+    },
+    quickRoleCounts() {
+      let tank = 0
+      let healer = 0
+      let dps = 0
+      const list = Array.isArray(this.signups) ? this.signups : []
+      for (const s of list) {
+        const label = this.getSignupClassLabel(s)
+        const slot = this.getQuickRoleSlotByLabel(label)
+        if (slot === 'tank') tank += 1
+        else if (slot === 'healer') healer += 1
+        else dps += 1
+      }
+      return { tank, healer, dps }
+    },
+    roleStatList() {
+      const slot = this.roleStatSlot
+      if (!slot || !['tank', 'healer', 'dps'].includes(slot)) return []
+      return (this.signups || []).filter(
+        (s) => this.getQuickRoleSlotByLabel(this.getSignupClassLabel(s)) === slot,
+      )
+    },
+    roleStatTitle() {
+      const n = Array.isArray(this.roleStatList) ? this.roleStatList.length : 0
+      if (this.roleStatSlot === 'tank') return `坦克（${n}）`
+      if (this.roleStatSlot === 'healer') return `治疗（${n}）`
+      if (this.roleStatSlot === 'dps') return `输出（${n}）`
+      return `报名统计（${n}）`
     },
   },
 }
@@ -1251,19 +1416,67 @@ export default {
 
 .meta-row--type {
   margin-top: 14rpx;
-  justify-content: flex-start;
+  justify-content: space-between;
+  width: 100%;
+  flex-wrap: nowrap;
+  gap: 12rpx;
 }
 
 .created-type {
   font-size: 30rpx;
   color: #111827;
+  flex-shrink: 0;
+}
+
+.meta-row-type-right {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16rpx;
+  margin-left: auto;
+  flex-shrink: 0;
+  min-width: 0;
 }
 
 .signup-pair {
   display: flex;
   align-items: center;
   gap: 8rpx;
-  margin-left: 12rpx;
+  margin-left: 0;
+  flex-shrink: 0;
+}
+
+.activity-creator {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8rpx;
+  max-width: 220rpx;
+}
+
+.activity-creator-avatar {
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.activity-creator-avatar-text {
+  color: #ffffff;
+  font-size: 22rpx;
+  font-weight: 800;
+}
+
+.activity-creator-name {
+  font-size: 22rpx;
+  color: #334155;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .signup-icon {
@@ -1280,17 +1493,24 @@ export default {
   color: #334155;
 }
 
+.quick-block {
+  margin-top: 10rpx;
+}
+
 .quick-row {
   display: flex;
   align-items: center;
-  gap: 14rpx;
-  margin-top: 10rpx;
+  gap: 12rpx;
 }
 
 .quick-item {
   display: flex;
   align-items: center;
-  gap: 6rpx;
+  gap: 4rpx;
+  padding: 6rpx 12rpx 6rpx 10rpx;
+  border-radius: 999rpx;
+  background: rgba(241, 245, 249, 0.95);
+  border: 2rpx solid rgba(148, 163, 184, 0.55);
 }
 
 .quick-icon {
@@ -1315,7 +1535,17 @@ export default {
 
 .quick-num {
   font-size: 24rpx;
-  color: #334155;
+  color: #1d4ed8;
+  font-weight: 700;
+  border-bottom: 2rpx dashed rgba(29, 78, 216, 0.4);
+}
+
+.quick-chevron {
+  font-size: 26rpx;
+  color: #1d4ed8;
+  font-weight: 700;
+  line-height: 1;
+  margin-left: 2rpx;
 }
 
 .side-btn {
@@ -1739,6 +1969,62 @@ export default {
   overflow: hidden;
 }
 
+.role-stat-modal {
+  display: flex;
+  flex-direction: column;
+  max-height: 85vh;
+}
+
+.role-stat-scroll {
+  flex: 1;
+  max-height: 44vh;
+  padding: 0 16rpx 8rpx;
+  box-sizing: border-box;
+}
+
+.role-stat-inner {
+  width: 100%;
+}
+
+.role-stat-empty {
+  padding: 36rpx 0;
+  text-align: center;
+  color: rgba(17, 24, 39, 0.45);
+  font-size: 26rpx;
+}
+
+.role-stat-tags {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  padding: 4rpx 0 8rpx;
+}
+
+.role-stat-tag {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  margin: 0 8rpx 8rpx 0;
+  padding: 4rpx 12rpx;
+  border-radius: 999rpx;
+  border-width: 2rpx;
+  border-style: solid;
+  box-sizing: border-box;
+}
+
+.role-stat-tag-text {
+  font-size: 22rpx;
+  font-weight: 700;
+  line-height: 32rpx;
+  word-break: break-all;
+}
+
+.quick-item:active {
+  opacity: 0.78;
+  background: rgba(219, 234, 254, 0.95);
+}
+
 .info-body {
   padding: 20rpx 20rpx 0;
   color: rgba(17, 24, 39, 0.75);
@@ -1749,14 +2035,6 @@ export default {
 
 .limit-view {
   width: 100%;
-}
-
-.limit-title {
-  text-align: center;
-  font-size: 30rpx;
-  font-weight: 800;
-  color: rgba(17, 24, 39, 0.75);
-  margin-bottom: 16rpx;
 }
 
 .limit-missing {
@@ -1831,8 +2109,26 @@ export default {
   color: rgba(17, 24, 39, 0.55);
 }
 
+.limit-spec-pair {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6rpx;
+  flex-shrink: 0;
+}
+
+/* 与左侧「职业 / 职业限制」拉开距离，专精名不再贴左边 */
+.limit-spec-pair--first {
+  margin-left: 28rpx;
+}
+
+/* 与第一组专精拉开距离 */
+.limit-spec-pair--second {
+  margin-left: 24rpx;
+}
+
 .limit-spec-name-col {
-  width: 120rpx;
+  max-width: 120rpx;
   font-size: 22rpx;
   color: rgba(17, 24, 39, 0.55);
   font-weight: 700;
@@ -1842,11 +2138,12 @@ export default {
 }
 
 .limit-spec-limit-col {
-  width: 56rpx;
+  min-width: 44rpx;
   text-align: center;
   font-size: 24rpx;
   color: rgba(17, 24, 39, 0.65);
   font-weight: 900;
+  flex-shrink: 0;
 }
 
 .limit-tip {

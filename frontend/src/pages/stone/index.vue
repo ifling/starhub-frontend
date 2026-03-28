@@ -468,15 +468,27 @@ const DEFAULT_LIMIT_FORM = () => ({
   dps: null,
 })
 
+/** 人数限定：职业展示与编辑顺序（与报名页一致） */
+const CLASS_LIMIT_ORDER_IDS = [
+  'juren',
+  'shendun',
+  'senyuzhe',
+  'linghun',
+  'bingmo',
+  'leiying',
+  'qinglan',
+  'shensheshou',
+]
+
 const DEFAULT_LIMIT_CLASS_LIST = () => ([
+  { id: 'juren', name: '巨人守护者', color: '#08A0DC', limit: null, specs: [{ name: '岩盾', limit: null }, { name: '格挡', limit: null }] },
+  { id: 'shendun', name: '神盾骑士', color: '#0F68B3', limit: null, specs: [{ name: '防护', limit: null }, { name: '光盾', limit: null }] },
   { id: 'senyuzhe', name: '森语者', color: '#32BF0F', limit: null, specs: [{ name: '惩击', limit: null }, { name: '愈合', limit: null }] },
+  { id: 'linghun', name: '灵魂乐手', color: '#1F9F0E', limit: null, specs: [{ name: '狂音', limit: null }, { name: '协奏', limit: null }] },
   { id: 'bingmo', name: '冰魔导师', color: '#5C82E1', limit: null, specs: [{ name: '冰矛', limit: null }, { name: '射线', limit: null }] },
   { id: 'leiying', name: '雷影剑士', color: '#6B39DE', limit: null, specs: [{ name: '居合', limit: null }, { name: '月刃', limit: null }] },
   { id: 'qinglan', name: '青岚骑士', color: '#11B5B2', limit: null, specs: [{ name: '重装', limit: null }, { name: '空战', limit: null }] },
-  { id: 'juren', name: '巨人守护者', color: '#08A0DC', limit: null, specs: [{ name: '岩盾', limit: null }, { name: '格挡', limit: null }] },
   { id: 'shensheshou', name: '神射手', color: '#D4D116', limit: null, specs: [{ name: '驭兽', limit: null }, { name: '驯鹰', limit: null }] },
-  { id: 'shendun', name: '神盾骑士', color: '#0F68B3', limit: null, specs: [{ name: '防护', limit: null }, { name: '光盾', limit: null }] },
-  { id: 'linghun', name: '灵魂乐手', color: '#1F9F0E', limit: null, specs: [{ name: '狂音', limit: null }, { name: '协奏', limit: null }] },
 ])
 
 export default {
@@ -638,6 +650,11 @@ export default {
       for (const d of DEFAULT_LIMIT_CLASS_LIST()) {
         if (!existingIds.has(d.id)) next.push(d)
       }
+      next.sort((a, b) => {
+        const ia = CLASS_LIMIT_ORDER_IDS.indexOf(a.id)
+        const ib = CLASS_LIMIT_ORDER_IDS.indexOf(b.id)
+        return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib)
+      })
       this.limitClassList = next
     },
     toast(title) {

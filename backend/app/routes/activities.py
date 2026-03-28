@@ -15,6 +15,21 @@ from ..utils import generate_code
 router = APIRouter(prefix="/activities", tags=["activities"])
 
 
+def _owner_username(db: Session, owner_user_id) -> str | None:
+    if owner_user_id is None:
+        return None
+    u = db.get(User, owner_user_id)
+    if not u:
+        return None
+    return u.username if u.username else None
+
+
+def _activity_out(db: Session, act: Activity) -> ActivityOut:
+    return ActivityOut.model_validate(act, from_attributes=True).model_copy(
+        update={"owner_username": _owner_username(db, act.owner_user_id)},
+    )
+
+
 @router.post("", response_model=ActivityOut, status_code=status.HTTP_201_CREATED)
 def create_activity(
     payload: ActivityCreate,
@@ -37,7 +52,7 @@ def create_activity(
         try:
             db.commit()
             db.refresh(act)
-            return act
+            return _activity_out(db, act)
         except IntegrityError:
             db.rollback()
             continue
@@ -64,30 +79,18 @@ def list_my_activities(db: Session = Depends(get_db), user: User = Depends(get_c
         .order_by(Activity.created_at.desc())
     ).all()
 
-    result: list[dict] = []
+    result: list[ActivityMineOut] = []
     for act, signup_count in rows:
-        result.append(
-            {
-                "id": act.id,
-                "code": act.code,
-                "creator_id": act.creator_id,
-                "owner_user_id": act.owner_user_id,
-                "title": act.title,
-                "type": act.type,
-                "deadline_at": act.deadline_at,
-                "desc": act.desc,
-                "limits": act.limits,
-                "created_at": act.created_at,
-                "signup_count": int(signup_count or 0),
-            }
-        )
+        out = _activity_out(db, act).model_dump()
+        out["signup_count"] = int(signup_count or 0)
+        result.append(ActivityMineOut(**out))
     return result
 
 
 @router.get("", response_model=list[ActivityOut])
 def list_activities(db: Session = Depends(get_db)):
     rows = db.execute(select(Activity).order_by(Activity.created_at.desc())).scalars().all()
-    return rows
+    return [_activity_out(db, a) for a in rows]
 
 
 @router.get("/{activity_id}", response_model=ActivityOut)
@@ -95,7 +98,7 @@ def get_activity(activity_id: str, db: Session = Depends(get_db)):
     act = db.get(Activity, activity_id)
     if not act:
         raise HTTPException(status_code=404, detail="Activity not found")
-    return act
+    return _activity_out(db, act)
 
 
 @router.delete("/{activity_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -134,7 +137,7 @@ def update_activity(
     db.add(act)
     db.commit()
     db.refresh(act)
-    return act
+    return _activity_out(db, act)
 
 
 @router.get("/code/{code}", response_model=ActivityOut)
@@ -142,7 +145,7 @@ def get_activity_by_code(code: str, db: Session = Depends(get_db)):
     act = db.execute(select(Activity).where(Activity.code == code)).scalar_one_or_none()
     if not act:
         raise HTTPException(status_code=404, detail="Activity not found")
-    return act
+    return _activity_out(db, act)
 
 
 @router.post("/{activity_id}/signups", response_model=SignupOut, status_code=status.HTTP_201_CREATED)
