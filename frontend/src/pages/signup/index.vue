@@ -164,8 +164,7 @@
               >
                 <view
                   class="signup-group-icon role-icon"
-                  :class="`role-icon--${getClassKeyByLabel(g.classLabel)}`"
-                  :style="{ backgroundColor: '#ffffff' }"
+                  :style="[{ backgroundColor: '#ffffff' }, classIconMaskStyle(getClassKeyByLabel(g.classLabel))]"
                 ></view>
                 <text class="signup-group-title-text">
                   {{ g.classLabel }}（{{ g.signups.length }}）
@@ -297,7 +296,8 @@
               <view v-if="!signupEvents.length" class="signup-log-empty">暂无报名或取消记录</view>
               <view v-else class="signup-log-list">
                 <view v-for="ev in signupEvents" :key="ev.id" class="signup-log-row">
-                  <view class="signup-log-row-head">
+                  <text class="signup-log-left" :style="{ color: getSignupEventClassColor(ev) }">{{ getSignupEventLineLeft(ev) }}</text>
+                  <view class="signup-log-right">
                     <text
                       class="signup-log-action"
                       :class="ev.action === 'cancel' ? 'signup-log-action--cancel' : 'signup-log-action--signup'"
@@ -305,18 +305,6 @@
                       {{ signupEventActionLabel(ev.action) }}
                     </text>
                     <text class="signup-log-time">{{ formatSignupTime(ev.created_at) }}</text>
-                  </view>
-                  <view class="signup-log-line">
-                    <text class="signup-log-k">角色ID / 报名者</text>
-                    <text class="signup-log-v">{{ ev.nickname || '-' }}</text>
-                  </view>
-                  <view class="signup-log-line">
-                    <text class="signup-log-k">专精</text>
-                    <text class="signup-log-v">{{ getSignupEventSpecText(ev) }}</text>
-                  </view>
-                  <view class="signup-log-line signup-log-line--sub">
-                    <text class="signup-log-k">报名记录ID</text>
-                    <text class="signup-log-v signup-log-uuid">{{ formatSignupUuid(ev.signup_id) }}</text>
                   </view>
                 </view>
               </view>
@@ -454,8 +442,10 @@
               >
                 <view
                   class="role-icon"
-                  :class="`role-icon--${cls}`"
-                  :style="{ backgroundColor: roleClassColorMap[cls] || '#0b3a67' }"
+                  :style="[
+                    { backgroundColor: roleClassColorMap[cls] || '#0b3a67' },
+                    classIconMaskStyle(cls),
+                  ]"
                 ></view>
                 <text
                   class="role-label"
@@ -482,8 +472,10 @@
               >
                 <view
                   class="role-icon"
-                  :class="`role-icon--${selectedRoleClass}`"
-                  :style="{ backgroundColor: roleClassColorMap[selectedRoleClass] || '#0b3a67' }"
+                  :style="[
+                    { backgroundColor: roleClassColorMap[selectedRoleClass] || '#0b3a67' },
+                    classIconMaskStyle(selectedRoleClass),
+                  ]"
                 ></view>
                 <text
                   class="role-label"
@@ -844,9 +836,21 @@ export default {
         role: null,
       })
     },
-    formatSignupUuid(id) {
-      if (id == null || id === '') return '-'
-      return String(id)
+    getSignupEventLineLeft(ev) {
+      if (!ev) return '-'
+      const id = String(ev.nickname || '').trim() || '-'
+      const spec = String(this.getSignupEventSpecText(ev) || '').trim() || '-'
+      return `${id}-${spec}`
+    },
+    /** 与报名列表一致：按备注解析职业，取 roleClassColorMap 对应色 */
+    getSignupEventClassColor(ev) {
+      if (!ev) return '#94a3b8'
+      const label = this.getSignupClassLabel({
+        note: ev.note,
+        nickname: ev.nickname,
+        role: null,
+      })
+      return this.getClassColorByLabel(label)
     },
     getClassColorByLabel(label) {
       // roleClassColorMap 是 key->color；这里把 classLabel 映射到 key 再取颜色
@@ -874,6 +878,17 @@ export default {
         灵魂乐手: 'linghun',
       }
       return map[label] || ''
+    },
+    /** 职业图标：与 static/icons/{key}.svg 一一对应，换图只需更新资源文件 */
+    classIconMaskStyle(classKey) {
+      const key = String(classKey || '').trim()
+      if (!key) return {}
+      const u = `/static/icons/${key}.svg`
+      const src = `url('${u}')`
+      return {
+        '-webkit-mask-image': src,
+        'mask-image': src,
+      }
     },
     sanitizeGroupId(label) {
       const s = String(label || '')
@@ -2140,7 +2155,12 @@ export default {
 }
 
 .signup-log-row {
-  padding: 16rpx 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  padding: 14rpx 0;
   border-bottom: 2rpx solid rgba(0, 0, 0, 0.06);
 }
 
@@ -2148,20 +2168,30 @@ export default {
   border-bottom-width: 0;
 }
 
-.signup-log-row-head {
+.signup-log-left {
+  flex: 1;
+  min-width: 0;
+  font-size: 26rpx;
+  font-weight: 700;
+  line-height: 36rpx;
+  word-break: break-all;
+}
+
+.signup-log-right {
   display: flex;
   flex-direction: row;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 12rpx;
-  margin-bottom: 10rpx;
+  flex-shrink: 0;
 }
 
 .signup-log-action {
-  font-size: 26rpx;
+  font-size: 24rpx;
   font-weight: 800;
-  padding: 4rpx 12rpx;
+  padding: 2rpx 10rpx;
   border-radius: 8rpx;
+  line-height: 32rpx;
 }
 
 .signup-log-action--signup {
@@ -2175,43 +2205,10 @@ export default {
 }
 
 .signup-log-time {
-  font-size: 24rpx;
-  color: rgba(17, 24, 39, 0.5);
-  flex-shrink: 0;
-}
-
-.signup-log-line {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  gap: 12rpx;
-  padding: 4rpx 0;
-  font-size: 24rpx;
-  line-height: 34rpx;
-}
-
-.signup-log-line--sub {
-  opacity: 0.85;
-}
-
-.signup-log-k {
-  width: 220rpx;
-  flex-shrink: 0;
-  color: rgba(17, 24, 39, 0.5);
-  font-weight: 600;
-}
-
-.signup-log-v {
-  flex: 1;
-  word-break: break-all;
-  color: rgba(17, 24, 39, 0.82);
-  font-weight: 600;
-}
-
-.signup-log-uuid {
   font-size: 22rpx;
-  font-weight: 500;
-  color: rgba(17, 24, 39, 0.55);
+  color: rgba(17, 24, 39, 0.5);
+  line-height: 32rpx;
+  white-space: nowrap;
 }
 
 .limit-view {
@@ -2598,56 +2595,18 @@ export default {
 .role-icon {
   width: 28rpx;
   height: 28rpx;
+  flex-shrink: 0;
   background-repeat: no-repeat;
   background-position: center;
   background-size: contain;
   background-color: #0b3a67;
   -webkit-mask-repeat: no-repeat;
   -webkit-mask-position: center;
-  -webkit-mask-size: contain;
+  /* 略小于 100%，避免 viewBox 与图形边界不对称时在方块里显得“跑偏” */
+  -webkit-mask-size: 92%;
   mask-repeat: no-repeat;
   mask-position: center;
-  mask-size: contain;
-}
-
-.role-icon--shendun {
-  -webkit-mask-image: url('/static/icons/shendun.svg');
-  mask-image: url('/static/icons/shendun.svg');
-}
-
-.role-icon--juren {
-  -webkit-mask-image: url('/static/icons/juren.svg');
-  mask-image: url('/static/icons/juren.svg');
-}
-
-.role-icon--leiying {
-  -webkit-mask-image: url('/static/icons/leiying.svg');
-  mask-image: url('/static/icons/leiying.svg');
-}
-
-.role-icon--qinglan {
-  -webkit-mask-image: url('/static/icons/qinglan.svg');
-  mask-image: url('/static/icons/qinglan.svg');
-}
-
-.role-icon--bingmo {
-  -webkit-mask-image: url('/static/icons/bingmo.svg');
-  mask-image: url('/static/icons/bingmo.svg');
-}
-
-.role-icon--shensheshou {
-  -webkit-mask-image: url('/static/icons/shensheshou.svg');
-  mask-image: url('/static/icons/shensheshou.svg');
-}
-
-.role-icon--senyuzhe {
-  -webkit-mask-image: url('/static/icons/senyuzhe.svg');
-  mask-image: url('/static/icons/senyuzhe.svg');
-}
-
-.role-icon--linghun {
-  -webkit-mask-image: url('/static/icons/linghun.svg');
-  mask-image: url('/static/icons/linghun.svg');
+  mask-size: 92%;
 }
 
 .role-label {
